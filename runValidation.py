@@ -2,10 +2,12 @@ import ConfigParser
 import io
 import sys
 import os
+import pickle
 #import pcraster as pcr
 from osgeo import gdal
 import netCDF4 as nc
 import datetime
+from calendar import monthrange
 import numpy as np
 from scipy.stats.stats import spearmanr
 from scipy.stats import cumfreq
@@ -14,10 +16,10 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from mpl_toolkits.basemap import Basemap
+#from mpl_toolkits.basemap import Basemap
 from matplotlib.backends.backend_pdf import PdfPages
 import multiprocessing as mp
-
+import pcraster as pcr
 
 configFile = sys.argv[1]
 
@@ -30,7 +32,6 @@ def readConfigFile(configFileName):
   return config
 
 def getArguments(configFile, reference):
-  print reference
   global inputDir, dischargeFileName, summary, full, dischargeDir	
   config = readConfigFile(configFile)
   if reference:
@@ -42,25 +43,25 @@ def getArguments(configFile, reference):
   summary = config.get('Main options', 'summaryAnalysis')
   full = config.get('Main options', 'FullAnalysis')
   dischargeDir = str(config.get('GRDC data', 'dischargeDir'))
-  numCores = str(config.get('other', 'numCores'))
+  numCores = str(config.get('general', 'numCores'))
   return inputDir, dischargeFileName, summary, full, dischargeDir
   
-def getCatchmentMap(config):
-  catchmentAreaMap = str(config.get('other', 'catchmentAreaMap'))
-  cellAreaMap = str(config.get('other', 'cellAreaMap'))
-  cellAreaConstant = str(config.get('other', 'cellAreaConstant'))
-  routingMap = str(config.get('other', 'routingMap'))
+def getCatchmentMap(config, option = "otherReference"):
+  catchmentAreaMap = str(config.get(option, 'catchmentAreaMap'))
+  cellAreaMap = str(config.get(option, 'cellAreaMap'))
+  cellAreaConstant = str(config.get(option, 'cellAreaConstant'))
+  routingMap = str(config.get(option, 'routingMap'))
   if os.path.exists(catchmentAreaMap):
     f = gdal.Open(catchmentAreaMap)
     catchmentArea = f.GetRasterBand(1).ReadAsArray()
     return catchmentArea
-  elif os.path_exists(cellAreaMap) and os.path_exists(routingMap):
-    setclone(routingMap)
+  elif os.path.exists(cellAreaMap) and os.path.exists(routingMap):
+    pcr.setclone(routingMap)
     catchmentAcc = pcr.catchmenttotal(cellAreaMap, routingMap)
     catchmentArea = pcr.pcr2numpy(catchmentAcc, -9999.)
     return catchmentArea
-  elif os.path_exists(cellAreaMap) and os.path_exists(routingMap):
-    setclone(routingMap)
+  elif os.path.exists(cellAreaMap) and os.path.exists(routingMap):
+    pcr.setclone(routingMap)
     catchmentAcc = pcr.catchmenttotal(pcr.scalar(cellAreaConstant), routingMap)
     catchmentArea = pcr.pcr2numpy(catchmentAcc, -9999.)
     return catchmentArea
@@ -83,16 +84,16 @@ def readModelProps(ncFile):
   timeVar = nc.num2date(nctime,units = nctimeUnit, calendar = nctimeCalendar)
   return lon, lat, timeVar[0], timeVar[-1]
 
-def getWindowSize(config):
-  windowSize = int(config.get('other', 'windowSizeForMatching'))
+def getWindowSize(config, option = "general"):
+  windowSize = int(config.get(option, 'windowSizeForMatching'))
   return windowSize
 
-def getAreaMisMatch(config):
-  misMatch = float(config.get('other', 'areaMisMatchTolerance'))
+def getAreaMisMatch(config, option = "general"):
+  misMatch = float(config.get(option, 'areaMisMatchTolerance'))
   return misMatch
 
-def getCores(config):
-  numCores = int(config.get('other', 'numCores'))
+def getCores(config, option = "general"):
+  numCores = int(config.get(option, 'numCores'))
   return numCores
 	
 def readObservationsProps(fileName):
@@ -101,8 +102,18 @@ def readObservationsProps(fileName):
   obsLon = float(lines[13][25:-1])
   obsLat = float(lines[12][25:-1])
   obsCatchArea = float(lines[14][25:-1])*10**6
-  obsStart = datetime.datetime(int(lines[41][0:4]), int(lines[41][5:7]), int(lines[41][8:10]))
-  obsEnd = datetime.datetime(int(lines[-1][0:4]), int(lines[-1][5:7]), int(lines[-1][8:10]))
+  if lines[41][8:10] == "00" and lines[41][5:7] != "12":
+    obsStart = datetime.datetime(int(lines[41][0:4]), int(lines[41][5:7])+1, 1) - datetime.timedelta(days=1)
+  elif lines[41][8:10] == "00" and lines[41][5:7] == "12":
+    obsStart = datetime.datetime(int(lines[41][0:4])+1, 1, 1) - datetime.timedelta(days=1)
+  else:
+    obsStart = datetime.datetime(int(lines[41][0:4]), int(lines[41][5:7]), int(lines[41][8:10]))
+  if lines[-1][8:10] == "00" and lines[-1][5:7] != "12":
+    obsEnd = datetime.datetime(int(lines[-1][0:4]), int(lines[-1][5:7])+1, int(1)) - datetime.timedelta(days=1)
+  elif lines[-1][8:10] == "00" and lines[-1][5:7] == "12":
+    obsEnd = datetime.datetime(int(lines[-1][0:4])+1, 1, 1) - datetime.timedelta(days=1)
+  else:
+    obsEnd = datetime.datetime(int(lines[-1][0:4]), int(lines[-1][5:7]), int(lines[-1][8:10]))
   return obsLon, obsLat, obsCatchArea, obsStart, obsEnd
 
 def findMin(obs, mod):
@@ -123,11 +134,11 @@ def getModArea(xSel, ySel, windowSize, modCatchArea):
     areaSelection = modCatchArea[yLower:yUpper,xLower:xUpper].flatten()
     xSelection = np.tile(range(xLower, xUpper), len(range(yLower, yUpper)))
   elif xLower < 0:
-    areaSelection = np.concatenate([modCatchArea[range(yLower,yUpper),xLower:],modCatchArea[range(yLower,yUpper),:xUpper]]).flatten()
-    xSelection = np.tile(np.concatenate([range(xLower+dx, dx), range(xUpper)]),len(range(yLower, yUpper)))
+    areaSelection = np.concatenate([modCatchArea[range(yLower,yUpper),(xLower-1):].flatten(),modCatchArea[range(yLower,yUpper),:xUpper].flatten()]).flatten()
+    xSelection = np.tile(np.concatenate([range((xLower-1)+dx, dx), range(xUpper)]),len(range(yLower, yUpper)))
   elif xUpper > dx:
-    areaSelection = np.concatenate([modCatchArea[range(yLower,yUpper),xLower:], modCatchArea[range(yLower,yUpper),:(xUpper - dx)]]).flatten()
-    xSelection = np.tile(np.concatenate([range(xLower,dx), range(xUpper - dx)]),len(range(yLower, yUpper)))
+    areaSelection = np.concatenate([modCatchArea[range(yLower,yUpper),(xLower-1):].flatten(), modCatchArea[range(yLower,yUpper),:(xUpper - dx + 1)].flatten()]).flatten()
+    xSelection = np.tile(np.concatenate([range(xLower,dx), range(xUpper - dx + 1)]),len(range(yLower, yUpper)))
   ySelection = np.repeat(range(yLower, yUpper), len(range(xLower, xUpper)))
   return areaSelection, xSelection, ySelection
     
@@ -137,11 +148,14 @@ def matchLocation(obsLon, obsLat, obsCatchArea, modLon, modLat, modCatchArea, wi
   ySel = findMin(obsLat,modLat)
   if xSel != -999. and ySel != -999.:
     areaSelection, xSelection, ySelection = getModArea(xSel, ySel, windowSize, modCatchArea)
-    if np.min(np.abs(obsCatchArea - modCatchArea)) != modCatchArea[ySel, xSel] and np.min(np.abs(obsCatchArea - areaSelection))/obsCatchArea < misMatch:
-      locSel = np.argmin(np.abs(obsCatchArea - areaSelection))
-      xSel = xSelection[locSel]
-      ySel = ySelection[locSel]
-      return xSel, ySel
+    if obsCatchArea > 0.0:
+      if np.min(np.abs(obsCatchArea - modCatchArea)) != modCatchArea[ySel, xSel] and np.min(np.abs(obsCatchArea - areaSelection))/obsCatchArea < misMatch:
+        locSel = np.argmin(np.abs(obsCatchArea - areaSelection))
+        xSel = xSelection[locSel]
+        ySel = ySelection[locSel]
+        return xSel, ySel
+      else:
+        return -999., -999.
     else:
       return -999., -999.
   else:
@@ -165,19 +179,66 @@ def getObservationData(fileName):
     lineCount += 1
   return obsData
 
-def matchSeries(obs, mod, obsStart, obsEnd, modStart, modEnd):
+def monthDelta(d1, d2):
+  delta = 0
+  run = True
+  d1 = datetime.datetime(d1.year, d1.month, 1)
+  while run:
+    mdays = monthrange(d1.year, d1.month)[1]
+    d1 += datetime.timedelta(days=mdays)
+    if d1 <= d2:
+      delta += 1
+    else:
+      run = False
+  return delta
+
+def addMonth(date, months):
+  deltaMonth = date.month + months
+  year = date.year + (deltaMonth-1)/12
+  month = (deltaMonth - ((deltaMonth-1)/12)*12)
+  return datetime.datetime(year, month, date.day)
+
+def matchSeriesMonth(obs, mod, obsStart, obsEnd, modStart, modEnd):
   obsStartShift = 0
   modStartShift = 0
   obsEndShift = 0
   modEndShift = 0
   if obsStart < modStart:
-	obsStartShift += (modStart- obsStart).days
+        obsStartShift += monthDelta(obsStart, modStart)
   elif obsStart > modStart:
-	modStartShift += (obsStart - modStart).days
+        modStartShift += monthDelta(modStart, obsStart)
   if obsEnd > modEnd:
-	obsEndShift += (modEnd - obsEnd).days
+        obsEndShift -= monthDelta(modEnd, obsEnd)
   elif obsEnd < modEnd:
-	modEndShift += (obsEnd - modEnd).days
+        modEndShift -= monthDelta(obsEnd, modEnd)
+  if addMonth(obsStart, obsStartShift) < obsEnd and addMonth(obsEnd, obsEndShift) > obsStart and addMonth(modStart, modStartShift) < modEnd and addMonth(modEnd, modEndShift) > modStart:
+    if obsEndShift == 0:
+      obsOut = obs[obsStartShift:]
+    else:
+      obsOut = obs[obsStartShift:obsEndShift]
+    if modEndShift == 0:
+      modOut = mod[modStartShift:]
+    else:
+      modOut = mod[modStartShift:modEndShift]
+    obsOut[obsOut< 0.0] = np.nan
+    modOut[modOut< 0.0] = np.nan
+    return obsOut, modOut
+  else:
+        return [], []
+
+def matchSeriesDay(obs, mod, obsStart, obsEnd, modStart, modEnd):
+  obsStartShift = 0
+  modStartShift = 0
+  obsEndShift = 0
+  modEndShift = 0
+  if obsStart < modStart:
+        obsStartShift += (modStart- obsStart).days
+  elif obsStart > modStart:
+        modStartShift += (obsStart - modStart).days
+  if obsEnd > modEnd:
+        obsEndShift += (modEnd - obsEnd).days
+  elif obsEnd < modEnd:
+        modEndShift += (obsEnd - modEnd).days
   if obsStart + datetime.timedelta(days =obsStartShift) < obsEnd and obsEnd + datetime.timedelta(days =obsEndShift) > obsStart and modStart + datetime.timedelta(days =modStartShift) < modEnd and modEnd + datetime.timedelta(days =modEndShift) > modStart:
     if obsEndShift == 0:
       obsOut = obs[obsStartShift:]
@@ -191,7 +252,7 @@ def matchSeries(obs, mod, obsStart, obsEnd, modStart, modEnd):
     modOut[modOut< 0.0] = np.nan
     return obsOut, modOut
   else:
-	return None
+	return [], []
 	
 def nashSutcliffe(obs, mod):
   obsSel = np.isnan(obs) == False
@@ -226,17 +287,41 @@ def kge(obs, mod):
   kge   = 1- np.sqrt( (cc-1)**2 + (alpha-1)**2 + (beta-1)**2 )
   return kge
 
+def anomalyCorrelation(obs, mod, timeScale = "month"):
+  normObs = normalizeMonth(obs)
+  normMod = normalizeMonth(mod)
+  return spearmanr(normObs, normMod)[0]
+
+def normalizeMonth(data):
+  seasonCycle = np.zeros(len(data))
+  for m in range(12):
+    monthSelection = np.arange(m,len(data), 12)
+    seasonCycle[monthSelection] = np.mean(data[monthSelection])
+  return data - seasonCycle
+
 def calculateMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd):
-  obs, mod = matchSeries(obs, mod, obsStart, obsEnd, modStart, modEnd)
-  if len(obs) > 0 and len(mod) > 0:
-    R = spearmanr(obs, mod)[0]
-    NS = nashSutcliffe(obs, mod)
-    RMSE = rmse(obs, mod)
-    Bias, numPoints = bias(obs, mod)
-    KGE = kge(obs, mod)
-    return R, KGE, NS, RMSE, Bias, numPoints
+  obs, mod = matchSeriesMonth(obs, mod, obsStart, obsEnd, modStart, modEnd)
+  print len(obs), len(mod)
+  obsSel = np.isnan(obs) == False
+  modSel = np.isnan(mod) == False
+  sel = obsSel & modSel
+  if len(obs) > 12 and len(mod) > 12:
+    obsSel = np.isnan(obs) == False
+    modSel = np.isnan(mod) == False
+    sel = obsSel & modSel
+    if len(obs[sel]) > 12 and len(mod[sel]) > 12:
+      R = spearmanr(obs, mod)[0]
+      NS = nashSutcliffe(obs, mod)
+      RMSE = rmse(obs, mod)
+      Bias, numPoints = bias(obs, mod)
+      KGE = kge(obs, mod)
+      AC = anomalyCorrelation(obs, mod)
+      print R, AC, KGE, NS, RMSE, Bias, numPoints
+      return R, AC, KGE, NS, RMSE, Bias, numPoints
+    else:
+      return np.zeros((7))
   else:
-    return None
+    return np.zeros((7))
 
 def stackedPlotHistogram(metric, catchmentSize, title):
   plotData = []
@@ -294,15 +379,22 @@ def getGlobalProperties(configFile, reference):
   getArguments(configFile, reference)
   locations = os.listdir(dischargeDir)
   modLon, modLat, modStart, modEnd = readModelProps("%s/%s" %(inputDir, dischargeFileName))
-  modCatchArea = getCatchmentMap(config)
-  windowSize = getWindowSize(config)
-  misMatch = getAreaMisMatch(config)
-  numCores = getCores(config)
+  if reference:
+    option = "otherReference"
+  else:
+    option = "other"
+  modCatchArea = getCatchmentMap(config, option)
+  windowSize = getWindowSize(config, "general")
+  misMatch = getAreaMisMatch(config, "general")
+  numCores = getCores(config, "general")
   return modLon, modLat, modStart, modEnd, inputDir, modCatchArea, windowSize, misMatch, locations, numCores
   
-def extractLocation(location,inputDir, dischargeFileName):
-  output = np.zeros((9))
-  if location[-4:] == ".day":
+def extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea):
+  print location/float(len(locations)), locations[location]
+  location = locations[location]
+  f(location)
+  output = np.zeros((10))
+  if location[-4:] == ".mon":
     obsLon, obsLat, obsCatchArea, obsStart, obsEnd = readObservationsProps("%s/%s" %(dischargeDir, location))
     output[0:2] = obsLon, obsLat
     output[2] = obsCatchArea
@@ -321,44 +413,59 @@ getGlobalProperties(configFile, reference=False)
 print inputDir, dischargeFileName
 pool = mp.Pool(processes=numCores)
 
-results = [pool.apply_async(extractLocation,args=(location,inputDir, dischargeFileName)) for location in locations]
+#print len(locations)
+#output = np.zeros((len(locations), 9))
+#for location in range(len(locations)):
+#  print location/float(len(locations)), locations[location]
+#  output[location,:] = extractLocation(locations[location],inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea)
+
+results = [pool.apply_async(extractLocation,args=(loc,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea)) for loc in range(len(locations))]
 outputList = [p.get() for p in results]
 output = np.array(outputList)
 
 getGlobalProperties(configFile, reference=True)
-print inputDir, dischargeFileName
+print inputDir, dischargeFileName, modCatchArea.shape
 
-results2 = [pool.apply_async(extractLocation,args=(location,inputDir, dischargeFileName)) for location in locations]
+#print len(locations)
+#output2 = np.zeros((len(locations), 9))
+#for location in range(len(locations)):
+#  print location/float(len(locations)), locations[location]
+#  output2[location,:] = extractLocation(locations[location],inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea)
+
+results2 = [pool.apply_async(extractLocation,args=(loc,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea)) for loc in range(len(locations))]
 outputList2 = [p.get() for p in results2]
 output2 = np.array(outputList2)
 
-pdf = PdfPages(str(config.get('Output options', 'outputFile')))
-matplotlib.rcParams.update({'font.size': 12})
+with open('validationResultsPool_20170905.obj', 'w') as f:  # Python 3: open(..., 'wb')
+    pickle.dump([output, output2], f)
+
+#pdf = PdfPages(str(config.get('Output options', 'outputFile')))
+#matplotlib.rcParams.update({'font.size': 12})
  
-m = Basemap(projection='mill',lon_0=0, llcrnrlon=-180., llcrnrlat=-59.,
-    urcrnrlon=180., urcrnrlat=90.)
+#m = Basemap(projection='mill',lon_0=0, llcrnrlon=-180., llcrnrlat=-59.,
+#    urcrnrlon=180., urcrnrlat=90.)
 
-lons = output[:,0]
-lats = output[:,1]
-x,y = m(lons, lats)
+#lons = output[:,0]
+#lats = output[:,1]
+#x,y = m(lons, lats)
 
-m.drawcountries(zorder=0)
-m.fillcontinents(color = 'coral',zorder=-1)
+#m.drawcountries(zorder=0)
+#m.fillcontinents(color = 'coral',zorder=-1)
    
-m.scatter(x,y, c=output[:,3])
-m.colorbar()
+#m.scatter(x,y, c=output[:,3])
+#m.colorbar()
 
-pdf.savefig()
-plt.clf()
+#pdf.savefig()
+#plt.clf()
 
-stackedPlotHistogram(output[:,3], output[:,2], "R")
-stackedPlotHistogram(output[:,4], output[:,2], "KGE")
+#stackedPlotHistogram(output[:,3], output[:,2], "R")
+#stackedPlotHistogram(output[:,4], output[:,2], "KGE")
 
-plotCDF(output[:,3], output2[:,3], "R")
-plotCDF(output[:,4], output2[:,4], "KGE")
+#plotCDF(output[:,3], output2[:,3], "R")
+#plotCDF(output[:,4], output2[:,4], "KGE")
 
-plotScatter(output[:,3], output2[:,3], "R")
-plotScatter(output[:,4], output2[:,4], "KGE")
+#plotScatter(output[:,3], output2[:,3], "R")
+#plotScatter(output[:,4], output2[:,4], "KGE")
 
-pdf.close()
+#pdf.close()
 
