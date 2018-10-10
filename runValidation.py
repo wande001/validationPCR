@@ -436,7 +436,10 @@ results2 = [pool.apply_async(extractLocation,args=(loc,inputDir, dischargeFileNa
 outputList2 = [p.get() for p in results2]
 output2 = np.array(outputList2)
 
-with open('validationResultsPool_20170905.obj', 'w') as f:  # Python 3: open(..., 'wb')
+run1 = str(config.get('Main options', 'RunName'))
+run2 = str(config.get('Reference options', 'RunName'))
+
+with open('validationResultsPool_%s_%s.obj' %(run1, run2), 'w') as f:  # Python 3: open(..., 'wb')
     pickle.dump([output, output2], f)
 
 #pdf = PdfPages(str(config.get('Output options', 'outputFile')))
