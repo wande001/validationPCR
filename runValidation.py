@@ -32,21 +32,23 @@ def readConfigFile(configFileName):
   return config
 
 def getArguments(configFile, reference):
-  global inputDir, dischargeFileName, summary, full, dischargeDir, runName, refName
+  global inputDir, dischargeFileName, summary, full, dischargeDir, runName, refName, logFile
   config = readConfigFile(configFile)
   if reference:
     inputDir = str(config.get('Reference options', 'inputRefDir'))
     dischargeFileName = str(config.get('Reference options', 'dischargeRefFileName'))
+    logFile = str(config.get('Reference options', 'logFile'))
   else:
     inputDir = str(config.get('Main options', 'inputDir'))
     dischargeFileName = str(config.get('Main options', 'dischargeFileName'))
-  summary = config.get('Main options', 'summaryAnalysis')
-  full = config.get('Main options', 'FullAnalysis')
+    logFile = str(config.get('Main options', 'logFile'))
+  full = config.get('Output options', 'FullAnalysis') == str("True")
+  summary = config.get('Output options', 'summaryAnalysis') == str("True")
   dischargeDir = str(config.get('GRDC data', 'dischargeDir'))
   numCores = str(config.get('general', 'numCores'))
   runName = str(config.get('Main options', 'RunName'))
   refName = str(config.get('Reference options', 'RunName'))
-  return inputDir, dischargeFileName, summary, full, dischargeDir,runName,refName
+  return inputDir, dischargeFileName, summary, full, dischargeDir,runName,refName, logFile
   
 def getCatchmentMap(config, modLon, modLat, option = "otherReference"):
   catchmentAreaMap = str(config.get(option, 'catchmentAreaMap'))
@@ -94,11 +96,15 @@ def readModelProps(ncFile):
   nctimeCalendar = f.variables['time'].calendar
   timeVar = nc.num2date(nctime,units = nctimeUnit, calendar = nctimeCalendar)
   modStep = (timeVar[1] - timeVar[0]).days
-  return lon, lat, timeVar[0], timeVar[-1], modStep
+  return lon, lat, timeVar[0], timeVar[-1], modStep, timeVar
 
 def getWindowSize(config, option = "general"):
   windowSize = int(config.get(option, 'windowSizeForMatching'))
   return windowSize
+
+def getTimeSize(config, option = "general"):
+  timeSize = int(config.get(option, 'minimumLengthForComparison'))
+  return timeSize
 
 def getAreaMisMatch(config, option = "general"):
   misMatch = float(config.get(option, 'areaMisMatchTolerance'))
@@ -173,6 +179,25 @@ def aggregateToMonth(data, startDate, endDate):
   startDate = datetime.datetime(startDate.year, startDate.month, 1)
   endDate = datetime.datetime(endDate.year, endDate.month, monthrange(endDate.year, endDate.month)[1])
   return np.array(monthlyData), startDate, endDate
+
+def aggregateToMonthTime(data, startDate, endDate):
+  deltaDays = (endDate - startDate).days
+  date_list = [startDate + datetime.timedelta(days=x) for x in range(0, deltaDays+1)]
+  tempMonth = startDate.month
+  dayCount = 0
+  tempStart = 0
+  monthlyData = []
+  while dayCount <= deltaDays:
+    if date_list[dayCount].month != tempMonth:
+      monthlyData.append(data[tempStart])
+      tempStart = dayCount
+      tempMonth = date_list[dayCount].month
+    dayCount += 1
+  monthlyData.append(data[tempStart])
+  startDate = datetime.datetime(startDate.year, startDate.month, 1)
+  endDate = datetime.datetime(endDate.year, endDate.month, monthrange(endDate.year, endDate.month)[1])
+  return np.array(monthlyData), startDate, endDate
+
 
 def findMin(obs, mod):
   cellSize = np.abs(mod[0] - mod[1])
@@ -287,11 +312,13 @@ def matchSeriesMonth(obs, mod, obsStart, obsEnd, modStart, modEnd):
       obsOut = obs[obsStartShift:obsEndShift]
     if modEndShift == 0:
       modOut = mod[modStartShift:]
+      plotTimes = modTimes[modStartShift:]
     else:
       modOut = mod[modStartShift:modEndShift]
+      plotTimes = modTimes[modStartShift:modEndShift]
     obsOut[obsOut< 0.0] = np.nan
     modOut[modOut< 0.0] = np.nan
-    return obsOut, modOut
+    return obsOut, modOut, plotTimes
   else:
         return [], []
 
@@ -315,13 +342,15 @@ def matchSeriesDay(obs, mod, obsStart, obsEnd, modStart, modEnd):
       obsOut = obs[obsStartShift:obsEndShift]
     if modEndShift == 0:
       modOut = mod[modStartShift:]
+      plotTimes = modTimes[modStartShift:]
     else:
       modOut = mod[modStartShift:modEndShift]
+      plotTimes = modTimes[modStartShift:modEndShift]
     obsOut[obsOut< 0.0] = np.nan
     modOut[modOut< 0.0] = np.nan
-    return obsOut, modOut
+    return obsOut, modOut, plotTimes
   else:
-	return [], []
+	return [], [], []
 	
 def nashSutcliffe(obs, mod):
   obsSel = np.isnan(obs) == False
@@ -369,17 +398,17 @@ def normalizeMonth(data):
   return data - seasonCycle
 
 def calculateMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, modStep):
-  if obsStep > 1 or modStep > 1: obs, mod = matchSeriesMonth(obs, mod, obsStart, obsEnd, modStart, modEnd)
-  if obsStep <= 1 and modStep <= 1: obs, mod = matchSeriesDay(obs, mod, obsStart, obsEnd, modStart, modEnd)
+  if obsStep > 1 or modStep > 1: obs, mod, plotTimes = matchSeriesMonth(obs, mod, obsStart, obsEnd, modStart, modEnd)
+  if obsStep <= 1 and modStep <= 1: obs, mod, plotTimes = matchSeriesDay(obs, mod, obsStart, obsEnd, modStart, modEnd)
   #print len(obs), len(mod)
   obsSel = np.isnan(obs) == False
   modSel = np.isnan(mod) == False
   sel = obsSel & modSel
-  if len(obs) > 12 and len(mod) > 12:
+  if len(obs) > timeSize and len(mod) > timeSize:
     obsSel = np.isnan(obs) == False
     modSel = np.isnan(mod) == False
     sel = obsSel & modSel
-    if len(obs[sel]) > 12 and len(mod[sel]) > 12:
+    if len(obs[sel]) > timeSize and len(mod[sel]) > timeSize:
       R = spearmanr(obs, mod)[0]
       NS = nashSutcliffe(obs, mod)
       RMSE = rmse(obs, mod)
@@ -393,71 +422,88 @@ def calculateMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, modS
   else:
     return np.zeros((7))
 
-def stackedPlotHistogram(metric, catchmentSize, title):
-  plotData = []
-  for lim in [10**4,25000,50000,10**5,25*10**4,25*10**10]:
-    sel = catchmentSize/10**6 < lim
-    plotData.append(metric[sel])
-  ax1 = plt.hist(plotData, bins=np.arange(-1,1,0.1), stacked=True, color=plt.get_cmap("Blues")(np.linspace(0, 1, 6)), label = ["$<10*10^3$","$<25*10^3$","$<50*10^3$","$<100*10^3$","$<250*10^3$","$\geq250*10^3$"])
-  ax1 = plt.legend(prop={'size': 10}, title="Catchment size ($km^2$)")
-  ax1 = plt.title(title)
-  ax1 = plt.xlabel("Value")
-  ax1 = plt.ylabel("Frequency")
-  ax1 = plt.xlim(-1, 1)
-  pdf.savefig()
-  plt.clf()
-
-def plotHistogram(metric, title):
-  ax1 = plt.hist(metric, bins=np.arange(-1,1,0.1))
-  ax1 = plt.title(title)
-  ax1 = plt.xlabel("Value")
-  ax1 = plt.ylabel("Frequency")
-  ax1 = plt.xlim(-1, 1)
-  pdf.savefig()
-  plt.clf()
-
-
-def plotCDF(forecast, validation, title, xlims = [-1,1]):
-  vals, x1, x2, x3 = cumfreq(forecast, len(forecast))
-  ax1 = plt.plot(np.linspace(np.min(forecast), np.max(forecast), len(forecast)), vals/len(forecast), label='Simulation')
-  vals, x1, x2, x3 = cumfreq(validation, len(validation))
-  ax2 = plt.plot(np.linspace(np.min(validation), np.max(validation), len(validation)), vals/len(validation), label='Reference')
-  ax2 = plt.legend(prop={'size': 10}) 
-  ax1 = plt.title(title)
-  ax1 = plt.xlabel("Value")
-  ax1 = plt.ylabel("ECDF")
-  ax1 = plt.xlim(xlims[0], xlims[1])
-  ax1 = plt.ylim(0, 1)
-  pdf.savefig()
-  plt.clf()
+def provideFullMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, modStep):
+  if obsStep > 1 or modStep > 1: obs, mod, plotTimes = matchSeriesMonth(obs, mod, obsStart, obsEnd, modStart, modEnd)
+  if obsStep <= 1 and modStep <= 1: obs, mod, plotTimes = matchSeriesDay(obs, mod, obsStart, obsEnd, modStart, modEnd)
+  #print len(obs), len(mod)
+  obsSel = np.isnan(obs) == False
+  modSel = np.isnan(mod) == False
+  sel = obsSel & modSel
+  if len(obs) > timeSize and len(mod) > timeSize:
+    obsSel = np.isnan(obs) == False
+    modSel = np.isnan(mod) == False
+    sel = obsSel & modSel
+    if len(obs[sel]) > timeSize and len(mod[sel]) > timeSize:
+      outData = {
+		"observations" : obs[sel],
+		"modelled": mod[sel],
+		"times": plotTimes[sel],}
+      return outData
+    else:
+      outData = {
+		"observations" : [],
+		"modelled": [],
+		"times": [],}
+      return outData
+  else:
+    outData = {
+		"observations" : [],
+		"modelled": [],
+		"times": [],}
+    return outData
 
 
-def plotScatter(forecast, validation, title):
-  ax1 = plt.plot(validation, forecast, "ro", markersize=8)
-  ax1 = plt.plot([-100,100], [-100,100])
-  ax1 = plt.title(title)
-  ax1 = plt.xlabel("Reference")
-  ax1 = plt.ylabel("Simulation")
-  ax1 = plt.xlim(-1, 1)
-  ax1 = plt.ylim(-1, 1)
-  pdf.savefig()
-  plt.clf()
-
+def getWaterBalance(fileName):
+  try:
+    f = open(fileName, "r")
+    lines = f.readlines()
+    f.close()
+  except:
+	lines = ""
+  
+  varData = {
+		"year" : [],
+		"precipitation" : [],
+		"actualET": [],
+		"runoff": [],
+		"totalPotentialGrossDemand": [],
+		"baseflow": [],
+		"storage": [],}
+  
+  varNames = varData.keys()
+  for line in lines:
+    varFields = line.split(" ")
+    if len(varFields) > 2:
+      if varFields[2] == "pcrglobwb" and len(varFields) == 9:
+        year = int(varFields[-1][:4])
+        if (year in varData["year"]) == False: varData["year"].append(year)
+      if len(varFields) > 15:
+        if varFields[7] == "days" and varFields[8] == "1" and varFields[9] == "to":
+          for var in varNames:
+            if varFields[6] == var:
+              varData[var].append(float(varFields[14]))
+      if len(varFields) > 14:
+        if varFields[6] == "days" and varFields[7] == "1" and varFields[8] == "to":
+          for var in varNames:
+            if varFields[5] == var:
+              varData[var].append(float(varFields[13]))
+  return(varData)
 
 def getGlobalProperties(configFile, reference):
-  global modLon, modLat, modStart, modEnd, modStep, inputDir, modCatchArea, windowSize, misMatch, locations, numCores
+  global modLon, modLat, modStart, modEnd, modStep, modTimes, inputDir, modCatchArea, windowSize, timeSize, misMatch, locations, numCores
   getArguments(configFile, reference)
   locations = os.listdir(dischargeDir)
-  modLon, modLat, modStart, modEnd, modStep = readModelProps("%s/%s" %(inputDir, dischargeFileName))
+  modLon, modLat, modStart, modEnd, modStep, modTimes = readModelProps("%s/%s" %(inputDir, dischargeFileName))
   if reference:
     option = "otherReference"
   else:
     option = "other"
   modCatchArea = getCatchmentMap(config, modLon, modLat, option)
   windowSize = getWindowSize(config, "general")
+  timeSize = getWindowSize(config, "general")
   misMatch = getAreaMisMatch(config, "general")
   numCores = getCores(config, "general")
-  return modLon, modLat, modStart, modEnd, modStep, inputDir, modCatchArea, windowSize, misMatch, locations, numCores
+  return modLon, modLat, modStart, modEnd, modStep, modTimes, inputDir, modCatchArea, windowSize, timeSize, misMatch, locations, numCores
   
 def extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep):
   #print location/float(len(locations)), locations[location]
@@ -476,9 +522,15 @@ def extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modL
       obsValues = getObservationData("%s/%s" %(dischargeDir, location))
       if obsStep == 1 and modStep != 1: obsValues, obsStart, obsEnd = aggregateToMonth(obsValues, obsStart, obsEnd)
       if modStep == 1 and obsStep != 1: modValues, modStart, modEnd = aggregateToMonth(modValues, modStart, modEnd)
+      if modStep == 1 and obsStep != 1: modTimes, modStart, modEnd = aggregateToMonth(modTimes, modStart, modEnd)
       if obsStep == 1 and modStep == 1: print "Daily data"
-      output[3:-1] = calculateMetrics(obsValues, modValues, obsStart, obsEnd, modStart, modEnd, obsStep, modStep)
-  return np.array(output)
+      if summary:
+        output[3:-1] = calculateMetrics(obsValues, modValues, obsStart, obsEnd, modStart, modEnd, obsStep, modStep)
+      if full:
+        series = calculateFullMetrics(obsValues, modValues, obsStart, obsEnd, modStart, modEnd, obsStep, modStep)
+      else:
+		series = []
+  return np.array(output), series
 
 def f(location):
   print location
@@ -497,6 +549,15 @@ results = [pool.apply_async(extractLocation,args=(loc,inputDir, dischargeFileNam
 outputList = [p.get() for p in results]
 output = np.array(outputList)
 
+if full:
+  for i in loc in range(len(locations)):
+    fullOutput["ID"].append(locations[loc][:-4])
+    fullOutput["data"].append(outputList[i+1])
+else:
+  fullOutput = []
+
+waterBalOutput = getWaterBalance(logFile)
+
 getGlobalProperties(configFile, reference=True)
 print inputDir, dischargeFileName, modCatchArea.shape
 
@@ -510,7 +571,16 @@ results2 = [pool.apply_async(extractLocation,args=(loc,inputDir, dischargeFileNa
 outputList2 = [p.get() for p in results2]
 output2 = np.array(outputList2)
 
+if full:
+  for i in loc in range(len(locations)):
+    fullOutput2["ID"].append(locations[loc][:-4])
+    fullOutput2["data"].append(outputList[i+1])
+else:
+  fullOutput2 = []
+
+waterBalOutput2 = getWaterBalance(logFile)
+
 with open('validationResultsPool_%s_%s.obj' %(runName, refName), 'w') as f:  # Python 3: open(..., 'wb')
-    pickle.dump([output, output2], f)
+    pickle.dump([output, output2, fullOutput, fullOutput2, waterBalOutput, waterBalOutput2], f)
 
 

@@ -160,39 +160,6 @@ def plotWaterBalance(data):
   pdf.savefig()
   plt.clf()
 
-def getWaterBalance(fileName):
-  f = open(fileName, "r")
-  lines = f.readlines()
-  
-  varData = {
-		"year" : [],
-		"precipitation" : [],
-		"actualET": [],
-		"runoff": [],
-		"totalPotentialGrossDemand": [],
-		"baseflow": [],
-		"storage": [],}
-  
-  varNames = varData.keys()
-  for line in lines:
-    varFields = line.split(" ")
-    if len(varFields) > 2:
-      if varFields[2] == "pcrglobwb" and len(varFields) == 9:
-        year = int(varFields[-1][:4])
-        if (year in varData["year"]) == False: varData["year"].append(year)
-      if len(varFields) > 15:
-        if varFields[7] == "days" and varFields[8] == "1" and varFields[9] == "to":
-          for var in varNames:
-            if varFields[6] == var:
-              varData[var].append(float(varFields[14]))
-      if len(varFields) > 14:
-        if varFields[6] == "days" and varFields[7] == "1" and varFields[8] == "to":
-          for var in varNames:
-            if varFields[5] == var:
-              varData[var].append(float(varFields[13]))
-  return(varData)
-
-
 def getOptions(config, option = "general"):
   dem = str(config.get(option, 'dem')) == str(True)
   demFile = str(config.get(option, 'demFile'))
@@ -201,7 +168,6 @@ def getOptions(config, option = "general"):
   koeppenFile = str(config.get(option, 'koeppenFile'))
   koeppenVarName = str(config.get(option, 'koeppenVarName'))
   reportWaterBalance = str(config.get(option, 'reportWaterBalance')) == str(True)
-  logFile = str(config.get(option, 'logFile'))
   worldMaps = str(config.get(option, 'worldMaps')) == str(True)
   plotHistogram = str(config.get(option, 'plotHistogram')) == str(True)
   return dem, demFile, demVarName, koeppen, koeppenFile, koeppenVarName, reportWaterBalance, logFile, worldMaps, plotHistogram
@@ -213,9 +179,7 @@ run1 = str(config.get('Main options', 'RunName'))
 run2 = str(config.get('Reference options', 'RunName'))
 dem, demFile, demVarName, koeppen, koeppenFile, koeppenVarName, reportWaterBalance, logFile, worldMaps, plotHistogram = getOptions(config, "general")
 
-print reportWaterBalance, logFile
-
-output, output2 = pickle.load(open('validationResultsPool_%s_%s.obj' %(run1, run2), 'rb') )
+output, output2, fullOutput, fullOutput2, waterBalOutput, waterBalOutput2 = pickle.load(open('validationResultsPool_%s_%s.obj' %(run1, run2), 'rb') )
 
 for step in [30]:
 
