@@ -422,7 +422,7 @@ def calculateMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, modS
   else:
     return np.zeros((7))
 
-def provideFullMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, modStep):
+def calculateFullMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, modStep):
   if obsStep > 1 or modStep > 1: obs, mod, plotTimes = matchSeriesMonth(obs, mod, obsStart, obsEnd, modStart, modEnd)
   if obsStep <= 1 and modStep <= 1: obs, mod, plotTimes = matchSeriesDay(obs, mod, obsStart, obsEnd, modStart, modEnd)
   #print len(obs), len(mod)
@@ -509,6 +509,7 @@ def extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modL
   #print location/float(len(locations)), locations[location]
   location = locations[location]
   output = np.zeros((11))
+  series = []
   #if location[-4:] == ".mon":
   if location[-4:] == ".mon" or location[-4:] == ".day":
     obsLon, obsLat, obsCatchArea, obsStart, obsEnd, obsStep = readObservationsProps("%s/%s" %(dischargeDir, location))
@@ -528,8 +529,6 @@ def extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modL
         output[3:-1] = calculateMetrics(obsValues, modValues, obsStart, obsEnd, modStart, modEnd, obsStep, modStep)
       if full:
         series = calculateFullMetrics(obsValues, modValues, obsStart, obsEnd, modStart, modEnd, obsStep, modStep)
-      else:
-		series = []
   return np.array(output), series
 
 def f(location):
@@ -549,10 +548,14 @@ results = [pool.apply_async(extractLocation,args=(loc,inputDir, dischargeFileNam
 outputList = [p.get() for p in results]
 output = np.array(outputList)
 
+print full
+print locations
+print outputList
 if full:
-  for i in loc in range(len(locations)):
+  fullOutput = {"ID" : [],"data": [],}
+  for loc in range(len(locations)):
     fullOutput["ID"].append(locations[loc][:-4])
-    fullOutput["data"].append(outputList[i+1])
+    fullOutput["data"].append(outputList[loc][1])
 else:
   fullOutput = []
 
@@ -571,9 +574,10 @@ outputList2 = [p.get() for p in results2]
 output2 = np.array(outputList2)
 
 if full:
-  for i in loc in range(len(locations)):
+  fullOutput2 = {"ID" : [],"data": [],}
+  for loc in range(len(locations)):
     fullOutput2["ID"].append(locations[loc][:-4])
-    fullOutput2["data"].append(outputList[i+1])
+    fullOutput2["data"].append(outputList[loc][1])
 else:
   fullOutput2 = []
 
