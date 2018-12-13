@@ -35,8 +35,8 @@ def getArguments(configFile, reference):
   global inputDir, dischargeFileName, summary, full, dischargeDir, runName, refName, logFile
   config = readConfigFile(configFile)
   if reference:
-    inputDir = str(config.get('Reference options', 'inputRefDir'))
-    dischargeFileName = str(config.get('Reference options', 'dischargeRefFileName'))
+    inputDir = str(config.get('Reference options', 'inputDir'))
+    dischargeFileName = str(config.get('Reference options', 'dischargeFileName'))
     logFile = str(config.get('Reference options', 'logFile'))
   else:
     inputDir = str(config.get('Main options', 'inputDir'))
@@ -65,7 +65,7 @@ def getCatchmentMap(config, modLon, modLat, option = "otherReference"):
     if (dxMod > 0 and dx < 0) or (dxMod < 0 and dx > 0):
       catchmentArea = catchmentArea[:,::-1]
     if (dyMod > 0 and dy < 0) or (dyMod < 0 and dy > 0):
-      catchmentArea = catchmentArea[::-1,:]    
+      catchmentArea = catchmentArea[::-1,:]
     return catchmentArea
   elif os.path.exists(cellAreaMap) and os.path.exists(routingMap):
     pcr.setclone(routingMap)
@@ -178,7 +178,7 @@ def aggregateToMonth(data, startDate, endDate):
   monthlyData.append(np.mean(data[tempStart:dayCount]))
   startDate = datetime.datetime(startDate.year, startDate.month, 1)
   endDate = datetime.datetime(endDate.year, endDate.month, monthrange(endDate.year, endDate.month)[1])
-  return np.array(monthlyData), startDate, endDate
+  return np.array(monthlyData), startDate, endDate, 28
 
 def aggregateToMonthTime(data, startDate, endDate):
   deltaDays = (endDate - startDate).days
@@ -292,7 +292,7 @@ def addMonth(date, months):
   day = monthrange(year, month)[1]
   return datetime.datetime(year, month, day)
 
-def matchSeriesMonth(obs, mod, obsStart, obsEnd, modStart, modEnd):
+def matchSeriesMonth(obs, mod, obsStart, obsEnd, modStart, modEnd, modTimes):
   obsStartShift = 0
   modStartShift = 0
   obsEndShift = 0
@@ -320,7 +320,7 @@ def matchSeriesMonth(obs, mod, obsStart, obsEnd, modStart, modEnd):
     modOut[modOut< 0.0] = np.nan
     return obsOut, modOut, plotTimes
   else:
-        return [], []
+        return [], [], []
 
 def matchSeriesDay(obs, mod, obsStart, obsEnd, modStart, modEnd):
   obsStartShift = 0
@@ -397,10 +397,9 @@ def normalizeMonth(data):
     seasonCycle[monthSelection] = np.mean(data[monthSelection])
   return data - seasonCycle
 
-def calculateMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, modStep):
-  if obsStep > 1 or modStep > 1: obs, mod, plotTimes = matchSeriesMonth(obs, mod, obsStart, obsEnd, modStart, modEnd)
-  if obsStep <= 1 and modStep <= 1: obs, mod, plotTimes = matchSeriesDay(obs, mod, obsStart, obsEnd, modStart, modEnd)
-  #print len(obs), len(mod)
+def calculateMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, modStep, modTimes):
+  if obsStep > 1 or modStep > 1: obs, mod, plotTimes = matchSeriesMonth(obs, mod, obsStart, obsEnd, modStart, modEnd, modTimes)
+  if obsStep <= 1 and modStep <= 1: obs, mod, plotTimes = matchSeriesDay(obs, mod, obsStart, obsEnd, modStart, modEnd, modTimes)
   obsSel = np.isnan(obs) == False
   modSel = np.isnan(mod) == False
   sel = obsSel & modSel
@@ -422,10 +421,9 @@ def calculateMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, modS
   else:
     return np.zeros((7))
 
-def calculateFullMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, modStep):
-  if obsStep > 1 or modStep > 1: obs, mod, plotTimes = matchSeriesMonth(obs, mod, obsStart, obsEnd, modStart, modEnd)
-  if obsStep <= 1 and modStep <= 1: obs, mod, plotTimes = matchSeriesDay(obs, mod, obsStart, obsEnd, modStart, modEnd)
-  #print len(obs), len(mod)
+def calculateFullMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, modStep, modTimes):
+  if obsStep > 1 or modStep > 1: obs, mod, plotTimes = matchSeriesMonth(obs, mod, obsStart, obsEnd, modStart, modEnd, modTimes)
+  if obsStep <= 1 and modStep <= 1: obs, mod, plotTimes = matchSeriesDay(obs, mod, obsStart, obsEnd, modStart, modEnd, modTimes)
   obsSel = np.isnan(obs) == False
   modSel = np.isnan(mod) == False
   sel = obsSel & modSel
@@ -505,7 +503,7 @@ def getGlobalProperties(configFile, reference):
   numCores = getCores(config, "general")
   return modLon, modLat, modStart, modEnd, modStep, modTimes, inputDir, modCatchArea, windowSize, timeSize, misMatch, locations, numCores
   
-def extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep):
+def extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep, modTimes):
   #print location/float(len(locations)), locations[location]
   location = locations[location]
   output = np.zeros((11))
@@ -521,14 +519,15 @@ def extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modL
     if xSel != -999. and ySel != -999.:
       modValues = getModelData("%s/%s" %(inputDir, dischargeFileName), xSel, ySel)
       obsValues = getObservationData("%s/%s" %(dischargeDir, location))
-      if obsStep == 1 and modStep != 1: obsValues, obsStart, obsEnd = aggregateToMonth(obsValues, obsStart, obsEnd)
-      if modStep == 1 and obsStep != 1: modValues, modStart, modEnd = aggregateToMonth(modValues, modStart, modEnd)
-      if modStep == 1 and obsStep != 1: modTimes, modStart, modEnd = aggregateToMonth(modTimes, modStart, modEnd)
-      if obsStep == 1 and modStep == 1: print "Daily data"
+      if obsStep == 1 and modStep != 1: obsValues, obsStart, obsEnd, obsStep = aggregateToMonth(obsValues, obsStart, obsEnd)
+      elif modStep == 1 and obsStep != 1:
+        modValues, modStart, modEnd, modStep = aggregateToMonth(modValues, modStart, modEnd)
+        modTimes, modStart, modEnd = aggregateToMonth(modTimes, modStart, modEnd)
+      elif obsStep == 1 and modStep == 1: print "Daily data"
       if summary:
-        output[3:-1] = calculateMetrics(obsValues, modValues, obsStart, obsEnd, modStart, modEnd, obsStep, modStep)
+        output[3:-1] = calculateMetrics(obsValues, modValues, obsStart, obsEnd, modStart, modEnd, obsStep, modStep, modTimes)
       if full:
-        series = calculateFullMetrics(obsValues, modValues, obsStart, obsEnd, modStart, modEnd, obsStep, modStep)
+        series = calculateFullMetrics(obsValues, modValues, obsStart, obsEnd, modStart, modEnd, obsStep, modStep, modTimes)
   return np.array(output), series
 
 def f(location):
@@ -536,7 +535,6 @@ def f(location):
 
 
 getGlobalProperties(configFile, reference=False)
-print inputDir, dischargeFileName
 pool = mp.Pool(processes=numCores)
 
 #output = np.zeros((len(locations), 11))
@@ -544,13 +542,10 @@ pool = mp.Pool(processes=numCores)
 #  print location/float(len(locations)), locations[location]
 #  output[location,:] = extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep)
 
-results = [pool.apply_async(extractLocation,args=(loc,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep)) for loc in range(len(locations))]
+results = [pool.apply_async(extractLocation,args=(loc,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep, modTimes)) for loc in range(len(locations))]
 outputList = [p.get() for p in results]
 output = np.array(outputList)
 
-print full
-print locations
-print outputList
 if full:
   fullOutput = {"ID" : [],"data": [],}
   for loc in range(len(locations)):
@@ -562,14 +557,13 @@ else:
 waterBalOutput = getWaterBalance(logFile)
 
 getGlobalProperties(configFile, reference=True)
-print inputDir, dischargeFileName, modStep
 
 #output2 = np.zeros((len(locations), 11))
 #for location in range(len(locations)):
 #  print location/float(len(locations)), locations[location]
 #  output2[location,:] = extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep)
 
-results2 = [pool.apply_async(extractLocation,args=(loc,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep)) for loc in range(len(locations))]
+results2 = [pool.apply_async(extractLocation,args=(loc,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep, modTimes)) for loc in range(len(locations))]
 outputList2 = [p.get() for p in results2]
 output2 = np.array(outputList2)
 
