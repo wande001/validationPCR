@@ -170,14 +170,15 @@ def getOptions(config, option = "general"):
   reportWaterBalance = str(config.get(option, 'reportWaterBalance')) == str(True)
   worldMaps = str(config.get(option, 'worldMaps')) == str(True)
   plotHistogram = str(config.get(option, 'plotHistogram')) == str(True)
-  return dem, demFile, demVarName, koeppen, koeppenFile, koeppenVarName, reportWaterBalance, logFile, worldMaps, plotHistogram
+  includeRef = config.get('Output options', 'includeReference') == str("True")
+  return dem, demFile, demVarName, koeppen, koeppenFile, koeppenVarName, reportWaterBalance, logFile, worldMaps, plotHistogram, includeRef
 
 print configFile
 config = readConfigFile(configFile)
 
 run1 = str(config.get('Main options', 'RunName'))
 run2 = str(config.get('Reference options', 'RunName'))
-dem, demFile, demVarName, koeppen, koeppenFile, koeppenVarName, reportWaterBalance, logFile, worldMaps, plotHistogram = getOptions(config, "general")
+dem, demFile, demVarName, koeppen, koeppenFile, koeppenVarName, reportWaterBalance, logFile, worldMaps, plotHistogram, includeRef = getOptions(config, "general")
 
 output, output2, fullOutput, fullOutput2, waterBalOutput, waterBalOutput2 = pickle.load(open('validationResultsPool_%s_%s.obj' %(run1, run2), 'rb') )
 
@@ -203,32 +204,32 @@ for step in [30]:
   matplotlib.rcParams.update({'font.size': 12})
   if worldMaps:
     plotWorldMap(output[sel5Min,3], output[sel5Min,0], output[sel5Min,1], 'Correlation with observations (%s)' %(str(config.get('Main options', 'RunName'))))
-    plotWorldMap(output2[sel,3], output2[sel,0], output2[sel,1], 'Correlation with observations (%s)' %(str(config.get('Reference options', 'RunName'))))
-    plotWorldMap(output[sel,3]-output2[sel,3], output[sel,0], output[sel,1], 'Correlation difference 5min - 30min', vmin=-0.5, vmax=0.5)
+    if includeRef: plotWorldMap(output2[sel,3], output2[sel,0], output2[sel,1], 'Correlation with observations (%s)' %(str(config.get('Reference options', 'RunName'))))
+    if includeRef: plotWorldMap(output[sel,3]-output2[sel,3], output[sel,0], output[sel,1], 'Correlation difference 5min - 30min', vmin=-0.5, vmax=0.5)
 
     plotWorldMap(output[sel5Min,4], output[sel5Min,0], output[sel5Min,1], 'Anomaly Correlation (%s)' %(str(config.get('Main options', 'RunName'))))
-    plotWorldMap(output2[sel,4], output2[sel,0], output2[sel,1], 'Anomaly Correlation (%s)' %(str(config.get('Reference options', 'RunName'))))
-    plotWorldMap(output[sel,4]-output2[sel,4], output[sel,0], output[sel,1], 'Anomaly Correlation difference', vmin=-0.5, vmax=0.5)
+    if includeRef: plotWorldMap(output2[sel,4], output2[sel,0], output2[sel,1], 'Anomaly Correlation (%s)' %(str(config.get('Reference options', 'RunName'))))
+    if includeRef: plotWorldMap(output[sel,4]-output2[sel,4], output[sel,0], output[sel,1], 'Anomaly Correlation difference', vmin=-0.5, vmax=0.5)
 
     plotWorldMap(output[sel5Min,4]-output[sel5Min,3], output[sel5Min,0], output[sel5Min,1], 'Anomaly Correlation - Correlation (%s)' %(str(config.get('Main options', 'RunName'))))
-    plotWorldMap(output2[sel,4]-output2[sel,3], output2[sel,0], output2[sel,1], 'Anomaly Correlation - Correlation (%s)' %(str(config.get('Reference options', 'RunName'))))
+    if includeRef: plotWorldMap(output2[sel,4]-output2[sel,3], output2[sel,0], output2[sel,1], 'Anomaly Correlation - Correlation (%s)' %(str(config.get('Reference options', 'RunName'))))
 
   if plotHistogram:
 
     stackedPlotHistogram(output[sel5Min,3], output[sel5Min,2], "Correlation with observations (%s)" %(str(config.get('Main options', 'RunName'))))
-    stackedPlotHistogram(output2[sel,3], output2[sel,2], "Correlation with observations (%s)" %(str(config.get('Reference options', 'RunName'))))
-    stackedPlotHistogram(output[sel5Min,3]-output2[sel5Min,3], output2[sel5Min,2], "Correlation difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
+    if includeRef: stackedPlotHistogram(output2[sel,3], output2[sel,2], "Correlation with observations (%s)" %(str(config.get('Reference options', 'RunName'))))
+    if includeRef: stackedPlotHistogram(output[sel5Min,3]-output2[sel5Min,3], output2[sel5Min,2], "Correlation difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
     stackedPlotHistogram(output[sel5Min,4], output[sel5Min,2], "Anomaly Correlation with observations (%s)" %(str(config.get('Main options', 'RunName'))))
-    stackedPlotHistogram(output2[sel,4], output2[sel,2], "Anomaly Correlation with observations (%s)" %(str(config.get('Reference options', 'RunName'))))
-    stackedPlotHistogram(output[sel5Min,4]-output2[sel5Min,4], output2[sel5Min,2], "Anomaly Correlation difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
+    if includeRef: stackedPlotHistogram(output2[sel,4], output2[sel,2], "Anomaly Correlation with observations (%s)" %(str(config.get('Reference options', 'RunName'))))
+    if includeRef: stackedPlotHistogram(output[sel5Min,4]-output2[sel5Min,4], output2[sel5Min,2], "Anomaly Correlation difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
     stackedPlotHistogram(output[sel5Min,5], output[sel5Min,2], "Kling-Gupta Efficiency (%s)" %(str(config.get('Main options', 'RunName'))))
-    stackedPlotHistogram(output2[sel,5], output2[sel,2], "Kling-Gupta Efficiency (%s)" %(str(config.get('Reference options', 'RunName'))))
-    stackedPlotHistogram(output[sel5Min,5]-output2[sel5Min,5], output2[sel5Min,2], "Kling-Gupta Efficiency difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
+    if includeRef: stackedPlotHistogram(output2[sel,5], output2[sel,2], "Kling-Gupta Efficiency (%s)" %(str(config.get('Reference options', 'RunName'))))
+    if includeRef: stackedPlotHistogram(output[sel5Min,5]-output2[sel5Min,5], output2[sel5Min,2], "Kling-Gupta Efficiency difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
     stackedPlotHistogram(output[sel5Min,4]-output[sel5Min,3], output[sel5Min,2], "AC - R (%s)" %(str(config.get('Main options', 'RunName'))))
-    stackedPlotHistogram(output2[sel,4]-output2[sel,3], output2[sel,2], "AC - R (%s)" %(str(config.get('Reference options', 'RunName'))))
+    if includeRef: stackedPlotHistogram(output2[sel,4]-output2[sel,3], output2[sel,2], "AC - R (%s)" %(str(config.get('Reference options', 'RunName'))))
 
   plotCDF(output[sel,3], output2[sel,3], "R")
   plotCDF(output[sel,4], output2[sel,4], "AC")
@@ -271,8 +272,8 @@ for step in [30]:
       plotClimateCDF(selHigh, "Above 1000m elevation", output, output2, sel5Min, sel)
 
   if reportWaterBalance:
-    varData = getWaterBalance(logFile)
-    plotWaterBalance(varData)
+    plotWaterBalance(waterBalOutput)
+    if includeRef: plotWaterBalance(waterBalOutput2)
 
   pdf.close()
 
