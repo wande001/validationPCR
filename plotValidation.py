@@ -25,8 +25,11 @@ def readConfigFile(configFileName):
 
 def stackedPlotHistogram(metric, catchmentSize, title, legendLoc = 2, ymax=3500):
   plotData = []
-  for lim in [10**4,25000,50000,10**5,25*10**4,25*10**10]:
-    sel = catchmentSize/10**6 < lim
+  lims = [0,10**4,25000,50000,10**5,25*10**4,25*10**10]
+  for lim in range(1,len(lims)):
+    sel1 = catchmentSize/10**6 < lims[lim]
+    sel2 = catchmentSize/10**6 > lims[lim-1]
+    sel = [x and y for x, y in zip(sel1, sel2)]
     plotData.append(metric[sel])
   ax1 = plt.hist(plotData, bins=np.arange(-1,1.01,0.1), width = 0.1, stacked=True, color=plt.get_cmap("Blues")(np.linspace(0, 1, 6)), label = ["$<10*10^3$","$<25*10^3$","$<50*10^3$","$<100*10^3$","$<250*10^3$","$\geq250*10^3$"], edgecolor = "none")
   ax1 = plt.legend(prop={'size': 10}, title="Catchment size ($km^2$)", loc = legendLoc)
@@ -96,8 +99,8 @@ def plotHexBin(forecast, validation, title):
 
 def plotWorldMap(data, lons, lats, title, vmin = -1., vmax = 1., s=5):
   plt.figure(figsize=(8, 4))
-  m = Basemap(projection='mill',lon_0=0, llcrnrlon=-180., llcrnrlat=-59.,
-    urcrnrlon=180., urcrnrlat=90.)
+  m = Basemap(projection='mill',lon_0=0, llcrnrlon=-20., llcrnrlat=20.,
+    urcrnrlon=50., urcrnrlat=75.)
   x,y = m(lons, lats)
 
   m.drawcountries(zorder=0, color="white")
@@ -116,7 +119,7 @@ def plotWorldMap(data, lons, lats, title, vmin = -1., vmax = 1., s=5):
 
 config = readConfigFile(configFile)
 
-output, output2 = pickle.load(open('validationResultsPool_20170905.obj', 'rb') )
+output, output2 = pickle.load(open('validationResultsPool_20180131.obj', 'rb') )
 sel1 = (np.isnan(output[:,3]+output[:,2]+output[:,4]+output2[:,2]+output2[:,3]+output2[:,4]) == False)
 sel2 = np.sum(output[:,3:], axis=1) != 0.0
 sel3 = np.sum(output2[:,3:], axis=1) != 0.0
@@ -128,7 +131,8 @@ matplotlib.rcParams.update({'font.size': 12})
 
 
 plotWorldMap(output[sel5Min,3], output[sel5Min,0], output[sel5Min,1], 'Correlation with observations (%s)' %(str(config.get('Main options', 'RunName'))))
-print len(sel)
+print len(sel), len(sel5Min), np.sum(np.isnan(output[:,3]) == False)
+print output[sel,3], output[:,3]
 print np.percentile(output2[sel,0], [25,50,75])
 print np.percentile(output2[sel,1], [25,50,75])
 print np.percentile(output2[sel,3], [25,50,75])
@@ -141,16 +145,16 @@ plotWorldMap(output[sel,4]-output2[sel,4], output[sel,0], output[sel,1], 'Anomal
 
 plotWorldMap(output[sel5Min,4]-output[sel5Min,3], output[sel5Min,0], output[sel5Min,1], 'Anomaly Correlation - Correlation (%s)' %(str(config.get('Main options', 'RunName'))))
 
-stackedPlotHistogram(output[sel5Min,3], output[sel5Min,2], "Correlation with observations (%s)" %(str(config.get('Main options', 'RunName'))), ymax=3600)
-stackedPlotHistogram(output2[sel,3], output2[sel,2], "Correlation with observations (%s)" %(str(config.get('Reference options', 'RunName'))), ymax=3600)
+stackedPlotHistogram(output[sel5Min,3], output[sel5Min,2], "Correlation with observations (%s)" %(str(config.get('Main options', 'RunName'))), ymax=750)
+stackedPlotHistogram(output2[sel,3], output2[sel,2], "Correlation with observations (%s)" %(str(config.get('Reference options', 'RunName'))), ymax=750)
 
-stackedPlotHistogram(output[sel5Min,4], output[sel5Min,2], "Anomaly Correlation with observations (%s)" %(str(config.get('Main options', 'RunName'))), ymax=3600)
-stackedPlotHistogram(output2[sel,4], output2[sel,2], "Anomaly Correlation with observations (%s)" %(str(config.get('Reference options', 'RunName'))), ymax=3600)
+stackedPlotHistogram(output[sel5Min,4], output[sel5Min,2], "Anomaly Correlation with observations (%s)" %(str(config.get('Main options', 'RunName'))), ymax=750)
+stackedPlotHistogram(output2[sel,4], output2[sel,2], "Anomaly Correlation with observations (%s)" %(str(config.get('Reference options', 'RunName'))), ymax=750)
 
-stackedPlotHistogram(output[sel5Min,5], output[sel5Min,2], "Kling-Gupta Efficiency (%s)" %(str(config.get('Main options', 'RunName'))), ymax=2000)
-stackedPlotHistogram(output2[sel,5], output2[sel,2], "Kling-Gupta Efficiency (%s)" %(str(config.get('Reference options', 'RunName'))), ymax=2000)
+stackedPlotHistogram(output[sel5Min,5], output[sel5Min,2], "Kling-Gupta Efficiency (%s)" %(str(config.get('Main options', 'RunName'))), ymax=500)
+stackedPlotHistogram(output2[sel,5], output2[sel,2], "Kling-Gupta Efficiency (%s)" %(str(config.get('Reference options', 'RunName'))), ymax=500)
 
-stackedPlotHistogram(output[sel5Min,4]-output[sel5Min,3], output[sel5Min,2], "AC - R (%s)" %(str(config.get('Main options', 'RunName'))))
+stackedPlotHistogram(output[sel5Min,4]-output[sel5Min,3], output[sel5Min,2], "AC - R (%s)" %(str(config.get('Main options', 'RunName'))), ymax=550)
 
 plotCDF(output[sel,3], output2[sel,3], "R")
 plotCDF(output[sel,4], output2[sel,4], "AC")
