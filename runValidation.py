@@ -32,7 +32,7 @@ def readConfigFile(configFileName):
   return config
 
 def getArguments(configFile, reference):
-  global inputDir, dischargeFileName, summary, full, dischargeDir, runName, refName, logFile
+  global inputDir, dischargeFileName, summary, full, dischargeDir, runName, refName, logFile, includeRef
   config = readConfigFile(configFile)
   if reference:
     inputDir = str(config.get('Reference options', 'inputDir'))
@@ -44,13 +44,14 @@ def getArguments(configFile, reference):
     logFile = str(config.get('Main options', 'logFile'))
   full = config.get('Output options', 'FullAnalysis') == str("True")
   summary = config.get('Output options', 'summaryAnalysis') == str("True")
+  includeRef = config.get('Output options', 'includeReference') == str("True")
   dischargeDir = str(config.get('GRDC data', 'dischargeDir'))
   numCores = str(config.get('general', 'numCores'))
   runName = str(config.get('Main options', 'RunName'))
   refName = str(config.get('Reference options', 'RunName'))
-  return inputDir, dischargeFileName, summary, full, dischargeDir,runName,refName, logFile
+  return inputDir, dischargeFileName, summary, full, dischargeDir,runName,refName, logFile, includeRef
   
-def getCatchmentMap(config, modLon, modLat, option = "otherReference"):
+def getCatchmentMap(config, modLon, modLat, option = "Reference options"):
   catchmentAreaMap = str(config.get(option, 'catchmentAreaMap'))
   cellAreaMap = str(config.get(option, 'cellAreaMap'))
   cellAreaConstant = str(config.get(option, 'cellAreaConstant'))
@@ -493,9 +494,9 @@ def getGlobalProperties(configFile, reference):
   locations = os.listdir(dischargeDir)
   modLon, modLat, modStart, modEnd, modStep, modTimes = readModelProps("%s/%s" %(inputDir, dischargeFileName))
   if reference:
-    option = "otherReference"
+    option = "Reference options"
   else:
-    option = "other"
+    option = "Main options"
   modCatchArea = getCatchmentMap(config, modLon, modLat, option)
   windowSize = getWindowSize(config, "general")
   timeSize = getWindowSize(config, "general")
@@ -556,26 +557,33 @@ else:
 
 waterBalOutput = getWaterBalance(logFile)
 
-getGlobalProperties(configFile, reference=True)
+if includeRef:
+
+  getGlobalProperties(configFile, reference=True)
 
 #output2 = np.zeros((len(locations), 11))
 #for location in range(len(locations)):
 #  print location/float(len(locations)), locations[location]
 #  output2[location,:] = extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep)
 
-results2 = [pool.apply_async(extractLocation,args=(loc,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep, modTimes)) for loc in range(len(locations))]
-outputList2 = [p.get() for p in results2]
-output2 = np.array(outputList2)
+  results2 = [pool.apply_async(extractLocation,args=(loc,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep, modTimes)) for loc in range(len(locations))]
+  outputList2 = [p.get() for p in results2]
+  output2 = np.array(outputList2)
 
-if full:
-  fullOutput2 = {"ID" : [],"data": [],}
-  for loc in range(len(locations)):
-    fullOutput2["ID"].append(locations[loc][:-4])
-    fullOutput2["data"].append(outputList[loc][1])
+  if full:
+    fullOutput2 = {"ID" : [],"data": [],}
+    for loc in range(len(locations)):
+      fullOutput2["ID"].append(locations[loc][:-4])
+      fullOutput2["data"].append(outputList[loc][1])
+  else:
+    fullOutput2 = []
+
+  waterBalOutput2 = getWaterBalance(logFile)
+
 else:
-  fullOutput2 = []
-
-waterBalOutput2 = getWaterBalance(logFile)
+  output2 = output
+  fullOutput2 = fullOutput
+  waterBalOutput2 = waterBalOutput
 
 with open('validationResultsPool_%s_%s.obj' %(runName, refName), 'w') as f:  # Python 3: open(..., 'wb')
     pickle.dump([output, output2, fullOutput, fullOutput2, waterBalOutput, waterBalOutput2], f)
