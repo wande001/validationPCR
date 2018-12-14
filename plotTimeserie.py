@@ -57,7 +57,7 @@ def plotTimeLines(forecast, reference, title):
   ax1 = plt.plot(forecast['times'], forecast['modelled'], "r", markersize=8, label=str(config.get('Main options', 'RunName')))
   ax1 = plt.plot(reference['times'], reference['modelled'], "b", markersize=8, label=str(config.get('Reference options', 'RunName')))
   ax1 = plt.plot(forecast['times'], forecast['observations'], "black", markersize=8, label="Observations", lw=2)
-  print forecast['times']
+  ax1 = plt.plot(reference['times'], reference['observations'], "black", markersize=8, label="Observations", lw=2)
   ax1 = plt.legend(prop={'size': 10}, loc=2)
   ax1 = plt.title(title)
   ax1 = plt.xlabel("")
