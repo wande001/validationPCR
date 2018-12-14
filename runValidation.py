@@ -545,6 +545,7 @@ pool = mp.Pool(processes=numCores)
 
 results = [pool.apply_async(extractLocation,args=(loc,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep, modTimes)) for loc in range(len(locations))]
 outputList = [p.get() for p in results]
+
 output = np.zeros((len(locations), 11))
 for loc in range(len(locations)):
   output[loc,:] = outputList[loc][0]
@@ -560,17 +561,18 @@ else:
 waterBalOutput = getWaterBalance(logFile)
 
 if includeRef:
+  print "IncludeRef"
 
   getGlobalProperties(configFile, reference=True)
 
-#output2 = np.zeros((len(locations), 11))
-#for location in range(len(locations)):
-#  print location/float(len(locations)), locations[location]
-#  output2[location,:] = extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep)
+  #output2 = np.zeros((len(locations), 11))
+  #for location in range(len(locations)):
+  #  print location/float(len(locations)), locations[location]
+  #  output2[location,:] = extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep)
 
   results2 = [pool.apply_async(extractLocation,args=(loc,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep, modTimes)) for loc in range(len(locations))]
   outputList2 = [p.get() for p in results2]
-  output2 = np.array(outputList2)
+
   output2 = np.zeros((len(locations), 11))
   for loc in range(len(locations)):
     output2[loc,:] = outputList2[loc][0]
@@ -579,13 +581,13 @@ if includeRef:
     fullOutput2 = {"ID" : [],"data": [],}
     for loc in range(len(locations)):
       fullOutput2["ID"].append(locations[loc][:-4])
-      fullOutput2["data"].append(outputList[loc][1])
+      fullOutput2["data"].append(outputList2[loc][1])
   else:
     fullOutput2 = []
 
   waterBalOutput2 = getWaterBalance(logFile)
 
-else:
+if includeRef == False:
   output2 = output
   fullOutput2 = fullOutput
   waterBalOutput2 = waterBalOutput
