@@ -54,10 +54,14 @@ def plotScatter(forecast, title):
 
 def plotTimeLines(forecast, reference, title):
   ax1 = plt.figure(figsize=(12,5))
-  ax1 = plt.plot(forecast['times'], forecast['modelled'], "r", markersize=8, label=str(config.get('Main options', 'RunName')))
-  ax1 = plt.plot(reference['times'], reference['modelled'], "b", markersize=8, label=str(config.get('Reference options', 'RunName')))
-  ax1 = plt.plot(forecast['times'], forecast['observations'], "black", markersize=8, label="Observations", lw=2)
-  ax1 = plt.plot(reference['times'], reference['observations'], "black", markersize=8, label="Observations", lw=2)
+  if forecast['times'][0].month != forecast['times'][1].month:
+    plotTimes = monthSeries(forecast['times'])
+  ax1 = plt.plot(plotTimes, forecast['modelled'], "r", markersize=8, label=str(config.get('Main options', 'RunName')))
+  ax1 = plt.plot(plotTimes, forecast['observations'], "black", markersize=8, label="Observations", lw=2)
+  if reference['times'][0].month != reference['times'][1].month:
+    plotTimes = monthSeries(reference['times'])
+  ax1 = plt.plot(plotTimes, reference['modelled'], "b", markersize=8, label=str(config.get('Reference options', 'RunName')))
+  ax1 = plt.plot(plotTimes, reference['observations'], "black", markersize=8, label="Observations", lw=2)
   ax1 = plt.legend(prop={'size': 10}, loc=2)
   ax1 = plt.title(title)
   ax1 = plt.xlabel("")
@@ -65,6 +69,12 @@ def plotTimeLines(forecast, reference, title):
   #ax1 = plt.gcf().set_tight_layout(True)
   pdf.savefig()
   plt.clf()
+
+def monthSeries(times):
+  outputTimes = []
+  for time in times:
+    outputTimes.append(datetime.datetime(time.year, time.month, 15))
+  return outputTimes
 
 def getOptions(config, option = "general"):
   includeRef = config.get('Output options', 'includeReference') == str("True")
