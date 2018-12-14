@@ -384,7 +384,7 @@ def kge(obs, mod):
   alpha = np.std(obs[sel])/np.std(mod[sel])
   beta  = np.sum(obs[sel])/np.sum(mod[sel])
   kge   = 1- np.sqrt( (cc-1)**2 + (alpha-1)**2 + (beta-1)**2 )
-  return kge
+  return kge, cc, alpha, beta
 
 def anomalyCorrelation(obs, mod, timeScale = "month"):
   normObs = normalizeMonth(obs)
@@ -413,14 +413,14 @@ def calculateMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, modS
       NS = nashSutcliffe(obs, mod)
       RMSE = rmse(obs, mod)
       Bias, numPoints = bias(obs, mod)
-      KGE = kge(obs, mod)
+      KGE, CC, Alpha, Beta = kge(obs, mod)
       AC = anomalyCorrelation(obs, mod)
       print R, AC, KGE, NS, RMSE, Bias, numPoints
-      return R, AC, KGE, NS, RMSE, Bias, numPoints
+      return R, AC, KGE, CC, Alpha, Beta, NS, RMSE, Bias, numPoints
     else:
-      return np.zeros((7))
+      return np.zeros((10))
   else:
-    return np.zeros((7))
+    return np.zeros((10))
 
 def calculateFullMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, modStep, modTimes):
   if obsStep > 1 or modStep > 1: obs, mod, plotTimes = matchSeriesMonth(obs, mod, obsStart, obsEnd, modStart, modEnd, modTimes)
@@ -507,14 +507,14 @@ def getGlobalProperties(configFile, reference):
 def extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep, modTimes):
   #print location/float(len(locations)), locations[location]
   location = locations[location]
-  output = np.zeros((11))
+  output = np.zeros((14))
   series = []
   #if location[-4:] == ".mon":
   if location[-4:] == ".mon" or location[-4:] == ".day":
     obsLon, obsLat, obsCatchArea, obsStart, obsEnd, obsStep = readObservationsProps("%s/%s" %(dischargeDir, location))
     output[0:2] = obsLon, obsLat
     output[2] = obsCatchArea
-    output[10] = float(obsStep)
+    output[13] = float(obsStep)
     xSel, ySel = matchLocation(obsLon, obsLat, obsCatchArea, modLon, modLat, modCatchArea, windowSize, misMatch)
     print location, obsStep, xSel, ySel
     if xSel != -999. and ySel != -999.:

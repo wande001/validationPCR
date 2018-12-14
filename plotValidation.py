@@ -228,6 +228,18 @@ for step in [30]:
     if includeRef: stackedPlotHistogram(output2[sel,5], output2[sel,2], "Kling-Gupta Efficiency (%s)" %(str(config.get('Reference options', 'RunName'))))
     if includeRef: stackedPlotHistogram(output[sel5Min,5]-output2[sel5Min,5], output2[sel5Min,2], "Kling-Gupta Efficiency difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
+    stackedPlotHistogram(output[sel5Min,6], output[sel5Min,2], "Kling-Gupta Efficiency Correlation (%s)" %(str(config.get('Main options', 'RunName'))))
+    if includeRef: stackedPlotHistogram(output2[sel,6], output2[sel,2], "Kling-Gupta Correlation (%s)" %(str(config.get('Reference options', 'RunName'))))
+    if includeRef: stackedPlotHistogram(output[sel5Min,6]-output2[sel5Min,6], output2[sel5Min,2], "Kling-Gupta Efficiency Correlation difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
+
+    stackedPlotHistogram(output[sel5Min,7], output[sel5Min,2], "Kling-Gupta Efficiency Alpha (%s)" %(str(config.get('Main options', 'RunName'))))
+    if includeRef: stackedPlotHistogram(output2[sel,7], output2[sel,2], "Kling-Gupta Efficiency Alpha (%s)" %(str(config.get('Reference options', 'RunName'))))
+    if includeRef: stackedPlotHistogram(output[sel5Min,7]-output2[sel5Min,7], output2[sel5Min,2], "Kling-Gupta Efficiency Alpha difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
+
+    stackedPlotHistogram(output[sel5Min,8], output[sel5Min,2], "Kling-Gupta Efficiency Beta (%s)" %(str(config.get('Main options', 'RunName'))))
+    if includeRef: stackedPlotHistogram(output2[sel,8], output2[sel,2], "Kling-Gupta Efficiency Beta (%s)" %(str(config.get('Reference options', 'RunName'))))
+    if includeRef: stackedPlotHistogram(output[sel5Min,8]-output2[sel5Min,8], output2[sel5Min,2], "Kling-Gupta Efficiency Beta difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
+
     stackedPlotHistogram(output[sel5Min,4]-output[sel5Min,3], output[sel5Min,2], "AC - R (%s)" %(str(config.get('Main options', 'RunName'))))
     if includeRef: stackedPlotHistogram(output2[sel,4]-output2[sel,3], output2[sel,2], "AC - R (%s)" %(str(config.get('Reference options', 'RunName'))))
 
