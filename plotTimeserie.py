@@ -13,6 +13,7 @@ from mpl_toolkits.basemap import Basemap
 from matplotlib.backends.backend_pdf import PdfPages
 import pickle
 import netCDF4 as nc
+import datetime
 
 
 configFile = sys.argv[1]
@@ -44,10 +45,15 @@ def plotCDF(forecast, validation, title):
 
 def plotScatter(forecast, title):
   ax1 = plt.figure(figsize=(7,5))
-  ax1 = plt.plot(forecast['modelled'], forecast['observations'], "bo", markersize=8)
+  ax1 = plt.plot(forecast['observations'], forecast['modelled'], "bo", markersize=8)
+  xmin, xmax = plt.xlim()
+  ymin, ymax = plt.ylim()
+  ax1 = plt.plot([0,10**10],[0,10**10], 'k-')
+  ax1 = plt.xlim(xmin, xmax)
+  ax1 = plt.ylim(ymin, ymax)
   ax1 = plt.title(title)
-  ax1 = plt.xlabel("Modelled")
-  ax1 = plt.ylabel("Observed")
+  ax1 = plt.ylabel("Modelled")
+  ax1 = plt.xlabel("Observed")
   ax1 = plt.gcf().set_tight_layout(True)
   pdf.savefig()
   plt.clf()
@@ -57,13 +63,15 @@ def plotTimeLines(forecast, reference, title):
   if forecast['times'][0].month != forecast['times'][1].month:
     plotTimes = monthSeries(forecast['times'])
   ax1 = plt.plot(plotTimes, forecast['modelled'], "r", markersize=8, label=str(config.get('Main options', 'RunName')))
-  ax1 = plt.plot(plotTimes, forecast['observations'], "black", markersize=8, label="Observations", lw=2)
+  ax1 = plt.plot(plotTimes, forecast['observations'], "black", markersize=8, lw=2)
   if reference['times'][0].month != reference['times'][1].month:
     plotTimes = monthSeries(reference['times'])
   ax1 = plt.plot(plotTimes, reference['modelled'], "b", markersize=8, label=str(config.get('Reference options', 'RunName')))
   ax1 = plt.plot(plotTimes, reference['observations'], "black", markersize=8, label="Observations", lw=2)
   ax1 = plt.legend(prop={'size': 10}, loc=2)
   ax1 = plt.title(title)
+  xmin, xmax = plt.xlim()
+  ax1 = plt.xlim(xmin*0.9995, xmax*1.0005)
   ax1 = plt.xlabel("")
   ax1 = plt.ylabel("Discharge (m3/s)")
   #ax1 = plt.gcf().set_tight_layout(True)
@@ -88,15 +96,20 @@ includeRef = getOptions(config, "general")
 
 output, output2, fullOutput, fullOutput2, waterBalOutput, waterBalOutput2 = pickle.load(open('validationResultsPool_%s_%s.obj' %(run1, run2), 'rb') )
 
-IDs = [i for i,x in enumerate(fullOutput["ID"]) if x == riverID[0]]
+IDs = []
+for ID in riverID:
+  print ID
+  IDs.append([i for i,x in enumerate(fullOutput["ID"]) if x == ID])
+
+IDs = np.array(IDs).flatten()
+print IDs
 
 pdf = PdfPages('riverResults_%s_%s.pdf' %(run1, run2))
-for ID in IDs:
-  
-  plotTimeLines(fullOutput["data"][ID], fullOutput2["data"][ID], "River")
+for ID, name in zip(IDs, riverID):
+  plotTimeLines(fullOutput["data"][ID], fullOutput2["data"][ID], "GRDC River %s" %(name))
   plotScatter(fullOutput["data"][ID], "Simulations %s, R= %.2f, AC = %.2f, KGE = %.2f" %(str(config.get('Main options', 'RunName')), output[IDs[0],3], output[IDs[0],4], output[IDs[0],5]))
   plotScatter(fullOutput2["data"][ID], "Simulations %s, R= %.2f, AC = %.2f, KGE = %.2f" %(str(config.get('Reference options', 'RunName')), output2[IDs[0],3], output2[IDs[0],4], output2[IDs[0],5]))
-  plotCDF(fullOutput["data"][ID], fullOutput2["data"][ID], "River")
+  plotCDF(fullOutput["data"][ID], fullOutput2["data"][ID], "GRDC River %s" %(name))
 
 pdf.close()
 
