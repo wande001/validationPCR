@@ -171,14 +171,14 @@ def getOptions(config, option = "general"):
   worldMaps = str(config.get(option, 'worldMaps')) == str(True)
   plotHistogram = str(config.get(option, 'plotHistogram')) == str(True)
   includeRef = config.get('Output options', 'includeReference') == str("True")
-  return dem, demFile, demVarName, koeppen, koeppenFile, koeppenVarName, reportWaterBalance, logFile, worldMaps, plotHistogram, includeRef
+  return dem, demFile, demVarName, koeppen, koeppenFile, koeppenVarName, reportWaterBalance, worldMaps, plotHistogram, includeRef
 
 print configFile
 config = readConfigFile(configFile)
 
 run1 = str(config.get('Main options', 'RunName'))
 run2 = str(config.get('Reference options', 'RunName'))
-dem, demFile, demVarName, koeppen, koeppenFile, koeppenVarName, reportWaterBalance, logFile, worldMaps, plotHistogram, includeRef = getOptions(config, "general")
+dem, demFile, demVarName, koeppen, koeppenFile, koeppenVarName, reportWaterBalance, worldMaps, plotHistogram, includeRef = getOptions(config, "general")
 
 output, output2, fullOutput, fullOutput2, waterBalOutput, waterBalOutput2 = pickle.load(open('validationResultsPool_%s_%s.obj' %(run1, run2), 'rb') )
 
@@ -205,7 +205,7 @@ for step in [30]:
   if worldMaps:
     plotWorldMap(output[sel5Min,3], output[sel5Min,0], output[sel5Min,1], 'Correlation with observations (%s)' %(str(config.get('Main options', 'RunName'))))
     if includeRef: plotWorldMap(output2[sel,3], output2[sel,0], output2[sel,1], 'Correlation with observations (%s)' %(str(config.get('Reference options', 'RunName'))))
-    if includeRef: plotWorldMap(output[sel,3]-output2[sel,3], output[sel,0], output[sel,1], 'Correlation difference 5min - 30min', vmin=-0.5, vmax=0.5)
+    if includeRef: plotWorldMap(output[sel,3]-output2[sel,3], output[sel,0], output[sel,1], 'Correlation difference', vmin=-0.5, vmax=0.5)
 
     plotWorldMap(output[sel5Min,4], output[sel5Min,0], output[sel5Min,1], 'Anomaly Correlation (%s)' %(str(config.get('Main options', 'RunName'))))
     if includeRef: plotWorldMap(output2[sel,4], output2[sel,0], output2[sel,1], 'Anomaly Correlation (%s)' %(str(config.get('Reference options', 'RunName'))))
