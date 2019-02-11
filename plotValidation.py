@@ -25,7 +25,7 @@ def readConfigFile(configFileName):
   config.readfp(io.BytesIO(sample_config))
   return config
 
-def stackedPlotHistogram(metric, catchmentSize, title, legendLoc = 2):
+def stackedPlotHistogram(metric, catchmentSize, title, legendLoc = 2, yMax=False):
   metric[np.isfinite(metric) == False] = -10000
   plotData = []
   lims = [0,10**4,25000,50000,10**5,25*10**4,25*10**10]
@@ -42,16 +42,28 @@ def stackedPlotHistogram(metric, catchmentSize, title, legendLoc = 2):
   ax1 = plt.ylabel("Frequency")
   ax1 = plt.xlim(-1, 1)
   ax1 = plt.ylim(0, ymax)
+  if yMax != False:
+    ax1 = plt.ylim(0,yMax*1.02)
   ax1 = plt.gcf().set_tight_layout(True)
   pdf.savefig()
   plt.clf()
 
-def plotHistogram(metric, title):
+def findPlotMax(forecast, validation):
+  ax1 = plt.hist(forecast, bins=np.arange(-1,1.01,0.1))[0]
+  ax2 = plt.hist(validation, bins=np.arange(-1,1.01,0.1))[0]
+  binMax = np.maximum(ax1, ax2)
+  plt.clf()
+  return(np.max(binMax))
+  
+
+def plotHistogram(metric, title, yMax = False):
   ax1 = plt.hist(metric, bins=np.arange(-1,1.01,0.1))
   ax1 = plt.title(title)
   ax1 = plt.xlabel("Value")
   ax1 = plt.ylabel("Frequency")
   ax1 = plt.xlim(-1, 1)
+  if yMax != False:
+    ax1 = plt.ylim(0,yMax*1.02)
   ax1 = plt.gcf().set_tight_layout(True)
   pdf.savefig()
   plt.clf()
@@ -215,33 +227,46 @@ for step in [30]:
     if includeRef: plotWorldMap(output2[sel,4]-output2[sel,3], output2[sel,0], output2[sel,1], 'Anomaly Correlation - Correlation (%s)' %(str(config.get('Reference options', 'RunName'))))
 
   if plotHistogram:
-
-    stackedPlotHistogram(output[sel5Min,3], output[sel5Min,2], "Correlation with observations (%s)" %(str(config.get('Main options', 'RunName'))))
-    if includeRef: stackedPlotHistogram(output2[sel,3], output2[sel,2], "Correlation with observations (%s)" %(str(config.get('Reference options', 'RunName'))))
+    if includeRef: yMax = findPlotMax(output[sel5Min,3], output2[sel,3])
+    else: yMax = False
+    stackedPlotHistogram(output[sel5Min,3], output[sel5Min,2], "Correlation with observations (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
+    if includeRef: stackedPlotHistogram(output2[sel,3], output2[sel,2], "Correlation with observations (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
     if includeRef: stackedPlotHistogram(output[sel5Min,3]-output2[sel5Min,3], output2[sel5Min,2], "Correlation difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
-    stackedPlotHistogram(output[sel5Min,4], output[sel5Min,2], "Anomaly Correlation with observations (%s)" %(str(config.get('Main options', 'RunName'))))
-    if includeRef: stackedPlotHistogram(output2[sel,4], output2[sel,2], "Anomaly Correlation with observations (%s)" %(str(config.get('Reference options', 'RunName'))))
+    if includeRef: yMax = findPlotMax(output[sel5Min,4], output2[sel,4])
+    else: yMax = False
+    stackedPlotHistogram(output[sel5Min,4], output[sel5Min,2], "Anomaly Correlation with observations (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
+    if includeRef: stackedPlotHistogram(output2[sel,4], output2[sel,2], "Anomaly Correlation with observations (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
     if includeRef: stackedPlotHistogram(output[sel5Min,4]-output2[sel5Min,4], output2[sel5Min,2], "Anomaly Correlation difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
-    stackedPlotHistogram(output[sel5Min,5], output[sel5Min,2], "Kling-Gupta Efficiency (%s)" %(str(config.get('Main options', 'RunName'))))
-    if includeRef: stackedPlotHistogram(output2[sel,5], output2[sel,2], "Kling-Gupta Efficiency (%s)" %(str(config.get('Reference options', 'RunName'))))
+    if includeRef: yMax = findPlotMax(output[sel5Min,5], output2[sel,5])
+    else: yMax = False
+    stackedPlotHistogram(output[sel5Min,5], output[sel5Min,2], "Kling-Gupta Efficiency (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
+    if includeRef: stackedPlotHistogram(output2[sel,5], output2[sel,2], "Kling-Gupta Efficiency (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
     if includeRef: stackedPlotHistogram(output[sel5Min,5]-output2[sel5Min,5], output2[sel5Min,2], "Kling-Gupta Efficiency difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
-    stackedPlotHistogram(output[sel5Min,6], output[sel5Min,2], "Kling-Gupta Efficiency Correlation (%s)" %(str(config.get('Main options', 'RunName'))))
-    if includeRef: stackedPlotHistogram(output2[sel,6], output2[sel,2], "Kling-Gupta Correlation (%s)" %(str(config.get('Reference options', 'RunName'))))
+    if includeRef: yMax = findPlotMax(output[sel5Min,6], output2[sel,6])
+    else: yMax = False
+    stackedPlotHistogram(output[sel5Min,6], output[sel5Min,2], "Kling-Gupta Efficiency Correlation (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
+    if includeRef: stackedPlotHistogram(output2[sel,6], output2[sel,2], "Kling-Gupta Correlation (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
     if includeRef: stackedPlotHistogram(output[sel5Min,6]-output2[sel5Min,6], output2[sel5Min,2], "Kling-Gupta Efficiency Correlation difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
-    stackedPlotHistogram(output[sel5Min,7], output[sel5Min,2], "Kling-Gupta Efficiency Alpha (%s)" %(str(config.get('Main options', 'RunName'))))
-    if includeRef: stackedPlotHistogram(output2[sel,7], output2[sel,2], "Kling-Gupta Efficiency Alpha (%s)" %(str(config.get('Reference options', 'RunName'))))
+    if includeRef: yMax = findPlotMax(output[sel5Min,7], output2[sel,7])
+    else: yMax = False
+    stackedPlotHistogram(output[sel5Min,7], output[sel5Min,2], "Kling-Gupta Efficiency Alpha (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
+    if includeRef: stackedPlotHistogram(output2[sel,7], output2[sel,2], "Kling-Gupta Efficiency Alpha (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
     if includeRef: stackedPlotHistogram(output[sel5Min,7]-output2[sel5Min,7], output2[sel5Min,2], "Kling-Gupta Efficiency Alpha difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
-    stackedPlotHistogram(output[sel5Min,8], output[sel5Min,2], "Kling-Gupta Efficiency Beta (%s)" %(str(config.get('Main options', 'RunName'))))
-    if includeRef: stackedPlotHistogram(output2[sel,8], output2[sel,2], "Kling-Gupta Efficiency Beta (%s)" %(str(config.get('Reference options', 'RunName'))))
+    if includeRef: yMax = findPlotMax(output[sel5Min,8], output2[sel,8])
+    else: yMax = False
+    stackedPlotHistogram(output[sel5Min,8], output[sel5Min,2], "Kling-Gupta Efficiency Beta (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
+    if includeRef: stackedPlotHistogram(output2[sel,8], output2[sel,2], "Kling-Gupta Efficiency Beta (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
     if includeRef: stackedPlotHistogram(output[sel5Min,8]-output2[sel5Min,8], output2[sel5Min,2], "Kling-Gupta Efficiency Beta difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
-    stackedPlotHistogram(output[sel5Min,4]-output[sel5Min,3], output[sel5Min,2], "AC - R (%s)" %(str(config.get('Main options', 'RunName'))))
-    if includeRef: stackedPlotHistogram(output2[sel,4]-output2[sel,3], output2[sel,2], "AC - R (%s)" %(str(config.get('Reference options', 'RunName'))))
+    if includeRef: yMax = findPlotMax(output[sel5Min,4]-output[sel5Min,3], output2[sel,4]-output2[sel,3])
+    else: yMax = False
+    stackedPlotHistogram(output[sel5Min,4]-output[sel5Min,3], output[sel5Min,2], "AC - R (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
+    if includeRef: stackedPlotHistogram(output2[sel,4]-output2[sel,3], output2[sel,2], "AC - R (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
 
   plotCDF(output[sel,3], output2[sel,3], "R")
   plotCDF(output[sel,4], output2[sel,4], "AC")
