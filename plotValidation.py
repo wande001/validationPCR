@@ -194,7 +194,7 @@ dem, demFile, demVarName, koeppen, koeppenFile, koeppenVarName, reportWaterBalan
 
 output, output2, fullOutput, fullOutput2, waterBalOutput, waterBalOutput2 = pickle.load(open('validationResultsPool_%s_%s.obj' %(run1, run2), 'rb') )
 
-for step in [30]:
+for step in [1,30]:
 
   sel1 = (np.isnan(output[:,3]+output[:,2]+output[:,4]+output[:,5]+output2[:,2]+output2[:,3]+output2[:,4]+output2[:,5]) == False)
   sel2 = np.sum(output[:,3:-1], axis=1) != 0.0
