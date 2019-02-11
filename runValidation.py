@@ -323,7 +323,7 @@ def matchSeriesMonth(obs, mod, obsStart, obsEnd, modStart, modEnd, modTimes):
   else:
         return [], [], []
 
-def matchSeriesDay(obs, mod, obsStart, obsEnd, modStart, modEnd):
+def matchSeriesDay(obs, mod, obsStart, obsEnd, modStart, modEnd, modTimes):
   obsStartShift = 0
   modStartShift = 0
   obsEndShift = 0
@@ -523,7 +523,7 @@ def extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modL
       if obsStep == 1 and modStep != 1: obsValues, obsStart, obsEnd, obsStep = aggregateToMonth(obsValues, obsStart, obsEnd)
       elif modStep == 1 and obsStep != 1:
         modValues, modStart, modEnd, modStep = aggregateToMonth(modValues, modStart, modEnd)
-        modTimes, modStart, modEnd = aggregateToMonth(modTimes, modStart, modEnd)
+        modTimes, modStart, modEnd = aggregateToMonthTime(modTimes, modStart, modEnd)
       elif obsStep == 1 and modStep == 1: print "Daily data"
       if summary:
         output[3:-1] = calculateMetrics(obsValues, modValues, obsStart, obsEnd, modStart, modEnd, obsStep, modStep, modTimes)
@@ -538,10 +538,10 @@ def f(location):
 getGlobalProperties(configFile, reference=False)
 pool = mp.Pool(processes=numCores)
 
-#output = np.zeros((len(locations), 11))
+#output = np.zeros((len(locations), 14))
 #for location in range(len(locations)):
 #  print location/float(len(locations)), locations[location]
-#  output[location,:] = extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep)
+#  output[location,:] = extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep, modTimes)
 
 results = [pool.apply_async(extractLocation,args=(loc,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep, modTimes)) for loc in range(len(locations))]
 outputList = [p.get() for p in results]
