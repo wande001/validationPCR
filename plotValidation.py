@@ -171,14 +171,14 @@ def getOptions(config, option = "general"):
   worldMaps = str(config.get(option, 'worldMaps')) == str(True)
   plotHistogram = str(config.get(option, 'plotHistogram')) == str(True)
   includeRef = config.get('Output options', 'includeReference') == str("True")
-  return dem, demFile, demVarName, koeppen, koeppenFile, koeppenVarName, reportWaterBalance, logFile, worldMaps, plotHistogram, includeRef
+  return dem, demFile, demVarName, koeppen, koeppenFile, koeppenVarName, reportWaterBalance, worldMaps, plotHistogram, includeRef
 
 print configFile
 config = readConfigFile(configFile)
 
 run1 = str(config.get('Main options', 'RunName'))
 run2 = str(config.get('Reference options', 'RunName'))
-dem, demFile, demVarName, koeppen, koeppenFile, koeppenVarName, reportWaterBalance, logFile, worldMaps, plotHistogram, includeRef = getOptions(config, "general")
+dem, demFile, demVarName, koeppen, koeppenFile, koeppenVarName, reportWaterBalance, worldMaps, plotHistogram, includeRef = getOptions(config, "general")
 
 output, output2, fullOutput, fullOutput2, waterBalOutput, waterBalOutput2 = pickle.load(open('validationResultsPool_%s_%s.obj' %(run1, run2), 'rb') )
 
