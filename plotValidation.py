@@ -268,8 +268,6 @@ for step in [1,30]:
   sel = [x and y and z and w and v and u for x, y, z, w, v, u in zip(sel1, sel2, sel3, sel4, sel5, sel6)]
   sel5Min = sel # [x and y and z and w and v for x, y, z, w in zip(sel1, sel2, sel4, sel5)]
 
-  print np.sum(sel5Min)
-
   if step != 1:
     pdf = PdfPages('plotResults_%s_%s_monthly.pdf' %(run1, run2))
   else:
