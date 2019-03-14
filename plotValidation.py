@@ -54,7 +54,30 @@ def findPlotMax(forecast, validation):
   binMax = np.maximum(ax1, ax2)
   plt.clf()
   return(np.max(binMax))
-  
+
+
+def plotHeatmap(forecast, validation, title, lab1, lab2, nbin = 40, xmin=-0.5, xmax=0.5, ymin=-0.5, ymax=0.5):
+  forecast[forecast < xmin] = xmin
+  forecast[forecast > xmax] = xmax
+  validation[validation < ymin] = ymin
+  validation[validation > ymax] = ymax
+  ax1 = plt.hist2d(forecast, validation, bins=(nbin,nbin), range=[[xmin,xmax],[ymin,ymax]], norm=colors.PowerNorm(0.2), cmap="Blues")
+  heatmap, xedges, yedges = np.histogram2d(forecast, validation, bins=(nbin, nbin), range=[[-1.,1.],[-1.,1.]])
+  mid = nbin/2
+  ax1 = plt.text(xmin-xmin*0.05,ymin-ymin*0.1,"%.3f" %(np.sum(heatmap[0:mid,0:mid])/np.sum(heatmap)), horizontalalignment='left')
+  ax1 = plt.text(xmax-xmax*0.05,ymin-ymin*0.1,"%.3f" %(np.sum(heatmap[mid:nbin,0:mid])/np.sum(heatmap)), horizontalalignment='right')
+  ax1 = plt.text(xmin-xmin*0.05,ymax-ymax*0.1,"%.3f" %(np.sum(heatmap[0:mid,mid:nbin])/np.sum(heatmap)), horizontalalignment='left')
+  ax1 = plt.text(xmax-xmax*0.05,ymax-ymax*0.1,"%.3f" %(np.sum(heatmap[mid:nbin,mid:nbin])/np.sum(heatmap)), horizontalalignment='right')
+  ax1 = plt.title(title)
+  ax1 = plt.plot([0.,0.],[ymin,ymax], "black")
+  ax1 = plt.plot([xmin,xmax],[0.,0.], "black")
+  ax1 = plt.xlim(xmin, xmax)
+  ax1 = plt.ylim(ymin, ymax)
+  ax1 = plt.xlabel(lab2)
+  ax1 = plt.ylabel(lab1)
+  ax1 = plt.gcf().set_tight_layout(True)
+  pdf.savefig()
+  plt.clf()
 
 def plotHistogram(metric, title, yMax = False):
   ax1 = plt.hist(metric, bins=np.arange(-1,1.01,0.1))
@@ -127,14 +150,49 @@ urcrnrlon=180., urcrnrlat=90.)
 
   m.scatter(x,y, c=data, cmap='RdBu', vmin=vmin, vmax=vmax, s=s, edgecolors='none')
   m.colorbar()
-  
+
   plt.title(title)
   plt.gcf().set_tight_layout(True)
   pdf.savefig()
   plt.clf()
   plt.figure(figsize=(8, 6))
-  
-def getNCData(ncFile, varName, xSel, ySel):    
+
+def plotImprovementMap(data, data2, lons, lats, title, s=5, lab1 = "Shape", lab2="Bias"):
+  plt.figure(figsize=(8, 4))
+  m = Basemap(projection='mill',lon_0=0, llcrnrlon=-180., llcrnrlat=-59.,
+urcrnrlon=180., urcrnrlat=90.)
+  m.drawcountries(zorder=0, color="white")
+  #m.drawcoastlines(zorder=0, color="black")
+  m.fillcontinents(color = 'black',zorder=-1)
+  for i in np.arange(3,-1,-1):
+    if i == 0 or i == 1:
+      sel1 = data > 0.0
+    elif i == 2 or i == 3:
+      sel1 = data < 0.0
+    if i == 0 or i == 2:
+      sel2 = data2 > 0.0
+    elif i == 1 or i == 3:
+      sel2 = data2 < 0.0
+    sel = [x and y for x, y in zip(sel1, sel2)]
+    x,y = m(lons[sel], lats[sel])
+
+    m.scatter(x,y, c=['#1b9e77','#ffff99','#7570b3','#d95f02'][i], s=s, edgecolors='none')
+
+  leg = plt.legend(("Better %s, %s" %(lab1, lab2),\
+  "Better %s, Worse %s" %(lab1, lab2),\
+  "Worse %s, Better %s" %(lab1, lab2),\
+  "Worse %s, %s" %(lab1, lab2)), loc = 9, bbox_to_anchor=(0.5, 0.0), ncol=4, prop={'size': 8},borderaxespad=0, frameon=False)
+  leg.legendHandles[0].set_color('#1b9e77')
+  leg.legendHandles[1].set_color('#ffff99')
+  leg.legendHandles[2].set_color('#7570b3')
+  leg.legendHandles[3].set_color('#d95f02')
+  plt.title(title)
+  #plt.gcf().set_tight_layout(True)
+  pdf.savefig()
+  plt.clf()
+  plt.figure(figsize=(8, 6))
+
+def getNCData(ncFile, varName, xSel, ySel):
   # Get netCDF file and variable name:
   data = np.zeros((len(xSel)))
   f = nc.Dataset(ncFile)
@@ -271,7 +329,15 @@ for step in [1,30]:
   plotCDF(output[sel,3], output2[sel,3], "R")
   plotCDF(output[sel,4], output2[sel,4], "AC")
   plotCDF(output[sel,5], output2[sel,5], "KGE")
-  
+
+  if includeRef:
+    plotHeatmap(output[sel,3]-output2[sel,3], output[sel,4] - output2[sel,4], "Improv. in R and AC", "R", "AC")
+    plotHeatmap(output[sel,3]-output2[sel,3], output[sel,5] - output2[sel,5], "Improv. in R and KGE", "R", "KGE")
+    plotHeatmap(output[sel,4]-output2[sel,4], output[sel,5] - output2[sel,5], "Improv. in AC and KGE", "AC", "KGE")
+    plotHeatmap(output[sel,7]-output2[sel,7], output[sel,8] - output2[sel,8], "Improv. in KGE alpha and KGE beta", "Alpha", "Beta")
+  if worldMaps:
+    plotImprovementMap(output[sel,7]-output2[sel,7], output[sel,8] - output2[sel,8], output2[sel,0], output2[sel,1], "Improv. in KGE alpha and KGE beta" , s=5, lab1 = "Shape", lab2="Bias")
+
   if koeppen:
     koeppenMask = getNCData(koeppenFile, varName = koeppenVarName, xSel = output[:,0], ySel = output[:,1])
 
@@ -313,5 +379,3 @@ for step in [1,30]:
     if includeRef: plotWaterBalance(waterBalOutput2)
 
   pdf.close()
-
-
