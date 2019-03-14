@@ -50,23 +50,48 @@ def getArguments(configFile, reference):
   runName = str(config.get('Main options', 'RunName'))
   refName = str(config.get('Reference options', 'RunName'))
   return inputDir, dischargeFileName, summary, full, dischargeDir,runName,refName, logFile, includeRef
-  
+
+def matchMaps(f, modLon, modLat):
+  dxMod = modLon[1] - modLon[0]
+  dyMod = modLat[1] - modLat[0]
+  dx = f.GetGeoTransform()[1]
+  dy = f.GetGeoTransform()[5]
+  startx = f.GetGeoTransform()[0] + dx/2.
+  starty = f.GetGeoTransform()[3] + dy/2.
+  catchmentArea = f.GetRasterBand(1).ReadAsArray()
+  leny, lenx = catchmentArea.shape
+  endx = startx + dx * lenx
+  endy = starty + dy * leny
+  lonCatch = np.arange(startx, endx, dx)
+  latCatch = np.arange(starty, endy, dy)
+  if (dxMod < 0 and dx > 0):
+    lonCatch = lonCatch[::-1]
+    catchmentArea = catchmentArea[:,::-1]
+  elif (dxMod > 0 and dx < 0):
+    lonCatch = lonCatch[::-1]
+    catchmentArea = catchmentArea[:,::-1]
+  xSel1 = np.argmax(lonCatch == modLon[0])
+  xSel2 = np.argmax(lonCatch == modLon[-1])+1
+  lonSel = np.minimum(xSel1,xSel2)
+  if (dxMod > 0 and dx < 0):
+    catchmentArea = catchmentArea[::-1,:]
+  elif (dxMod < 0 and dx > 0):
+    catchmentArea = catchmentArea[::-1,:]
+  ySel1 = np.argmax(latCatch == modLat[0])
+  ySel2 = np.argmax(latCatch == modLat[-1])+1
+  #latSel = np.minimum(ySel1,ySel2)
+  catchmentArea = catchmentArea[ySel1:ySel2, xSel1:xSel2]
+  print catchmentArea.shape, len(modLon), len(modLat)
+  return(catchmentArea)
+
 def getCatchmentMap(config, modLon, modLat, option = "Reference options"):
   catchmentAreaMap = str(config.get(option, 'catchmentAreaMap'))
   cellAreaMap = str(config.get(option, 'cellAreaMap'))
   cellAreaConstant = str(config.get(option, 'cellAreaConstant'))
   routingMap = str(config.get(option, 'routingMap'))
-  dxMod = modLon[1] - modLon[0]
-  dyMod = modLat[1] - modLat[0]
   if os.path.exists(catchmentAreaMap):
     f = gdal.Open(catchmentAreaMap)
-    dx = f.GetGeoTransform()[1]
-    dy = f.GetGeoTransform()[5]
-    catchmentArea = f.GetRasterBand(1).ReadAsArray()
-    if (dxMod > 0 and dx < 0) or (dxMod < 0 and dx > 0):
-      catchmentArea = catchmentArea[:,::-1]
-    if (dyMod > 0 and dy < 0) or (dyMod < 0 and dy > 0):
-      catchmentArea = catchmentArea[::-1,:]
+    catchmentArea = matchMaps(f, modLon, modLat)
     return catchmentArea
   elif os.path.exists(cellAreaMap) and os.path.exists(routingMap):
     pcr.setclone(routingMap)
@@ -323,7 +348,7 @@ def matchSeriesMonth(obs, mod, obsStart, obsEnd, modStart, modEnd, modTimes):
   else:
         return [], [], []
 
-def matchSeriesDay(obs, mod, obsStart, obsEnd, modStart, modEnd):
+def matchSeriesDay(obs, mod, obsStart, obsEnd, modStart, modEnd, modTimes):
   obsStartShift = 0
   modStartShift = 0
   obsEndShift = 0
@@ -514,7 +539,6 @@ def extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modL
     obsLon, obsLat, obsCatchArea, obsStart, obsEnd, obsStep = readObservationsProps("%s/%s" %(dischargeDir, location))
     output[0:2] = obsLon, obsLat
     output[2] = obsCatchArea
-    output[13] = float(obsStep)
     xSel, ySel = matchLocation(obsLon, obsLat, obsCatchArea, modLon, modLat, modCatchArea, windowSize, misMatch)
     print location, obsStep, xSel, ySel
     if xSel != -999. and ySel != -999.:
@@ -523,12 +547,13 @@ def extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modL
       if obsStep == 1 and modStep != 1: obsValues, obsStart, obsEnd, obsStep = aggregateToMonth(obsValues, obsStart, obsEnd)
       elif modStep == 1 and obsStep != 1:
         modValues, modStart, modEnd, modStep = aggregateToMonth(modValues, modStart, modEnd)
-        modTimes, modStart, modEnd = aggregateToMonth(modTimes, modStart, modEnd)
+        modTimes, modStart, modEnd = aggregateToMonthTime(modTimes, modStart, modEnd)
       elif obsStep == 1 and modStep == 1: print "Daily data"
       if summary:
         output[3:-1] = calculateMetrics(obsValues, modValues, obsStart, obsEnd, modStart, modEnd, obsStep, modStep, modTimes)
       if full:
         series = calculateFullMetrics(obsValues, modValues, obsStart, obsEnd, modStart, modEnd, obsStep, modStep, modTimes)
+    output[13] = float(obsStep)
   return np.array(output), series
 
 def f(location):
@@ -538,10 +563,10 @@ def f(location):
 getGlobalProperties(configFile, reference=False)
 pool = mp.Pool(processes=numCores)
 
-#output = np.zeros((len(locations), 11))
+#output = np.zeros((len(locations), 14))
 #for location in range(len(locations)):
 #  print location/float(len(locations)), locations[location]
-#  output[location,:] = extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep)
+#  output[location,:] = extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep, modTimes)[0]
 
 results = [pool.apply_async(extractLocation,args=(loc,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep, modTimes)) for loc in range(len(locations))]
 outputList = [p.get() for p in results]
@@ -568,7 +593,7 @@ if includeRef:
   #output2 = np.zeros((len(locations), 11))
   #for location in range(len(locations)):
   #  print location/float(len(locations)), locations[location]
-  #  output2[location,:] = extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep)
+  #  output2[location,:] = extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep, modTimes)[0]
 
   results2 = [pool.apply_async(extractLocation,args=(loc,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep, modTimes)) for loc in range(len(locations))]
   outputList2 = [p.get() for p in results2]
