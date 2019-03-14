@@ -539,7 +539,6 @@ def extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modL
     obsLon, obsLat, obsCatchArea, obsStart, obsEnd, obsStep = readObservationsProps("%s/%s" %(dischargeDir, location))
     output[0:2] = obsLon, obsLat
     output[2] = obsCatchArea
-    output[13] = float(obsStep)
     xSel, ySel = matchLocation(obsLon, obsLat, obsCatchArea, modLon, modLat, modCatchArea, windowSize, misMatch)
     print location, obsStep, xSel, ySel
     if xSel != -999. and ySel != -999.:
@@ -554,6 +553,7 @@ def extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modL
         output[3:-1] = calculateMetrics(obsValues, modValues, obsStart, obsEnd, modStart, modEnd, obsStep, modStep, modTimes)
       if full:
         series = calculateFullMetrics(obsValues, modValues, obsStart, obsEnd, modStart, modEnd, obsStep, modStep, modTimes)
+    output[13] = float(obsStep)
   return np.array(output), series
 
 def f(location):
