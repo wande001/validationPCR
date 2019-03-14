@@ -97,11 +97,15 @@ def plotCDF(forecast, validation, title, xlims = [-1,1]):
   forecast[forecast < -1.01] = -1.01
   vals, x1, x2, x3 = cumfreq(forecast, len(forecast))
   ax1 = plt.plot(np.linspace(np.min(forecast), np.max(forecast), len(forecast)), vals/len(forecast), label=str(config.get('Main options', 'RunName')))
+  ax1 = plt.plot([np.median(forecast),np.median(forecast)],[0.0,0.5], c="blue",linestyle=':')
   validation[np.isfinite(validation) == False] = -1.01
   validation[validation < -1.01] = -1.01
   vals, x1, x2, x3 = cumfreq(validation, len(validation))
   ax2 = plt.plot(np.linspace(np.min(validation), np.max(validation), len(validation)), vals/len(validation), label=str(config.get('Reference options', 'RunName')))
   ax2 = plt.legend(prop={'size': 10}, loc=2)
+  ax2 = plt.plot([np.median(validation),np.median(validation)],[0.0,0.5], c="red", linestyle=':')
+  ax2 = plt.text(np.max([np.median(validation),np.median(forecast)])+0.05, 0.4, "Med=%.3f" %(np.median(validation)), rotation=90, color="red", size=10)
+  ax1 = plt.text(np.max([np.median(validation),np.median(forecast)])+0.05, 0.2,"Med=%.3f" %(np.median(forecast)), rotation=90, color="blue", size=10)
   ax1 = plt.title(title)
   ax1 = plt.xlabel("Value")
   ax1 = plt.ylabel("ECDF")
