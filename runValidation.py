@@ -434,12 +434,12 @@ def calculateMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, modS
     modSel = np.isnan(mod) == False
     sel = obsSel & modSel
     if len(obs[sel]) > timeSize and len(mod[sel]) > timeSize:
-      R = spearmanr(obs, mod)[0]
-      NS = nashSutcliffe(obs, mod)
-      RMSE = rmse(obs, mod)
-      Bias, numPoints = bias(obs, mod)
-      KGE, CC, Alpha, Beta = kge(obs, mod)
-      AC = anomalyCorrelation(obs, mod)
+      R = spearmanr(obs[sel], mod[sel])[0]
+      NS = nashSutcliffe(obs[sel], mod[sel])
+      RMSE = rmse(obs[sel], mod[sel])
+      Bias, numPoints = bias(obs[sel], mod[sel])
+      KGE, CC, Alpha, Beta = kge(obs[sel], mod[sel])
+      AC = anomalyCorrelation(obs[sel], mod[sel])
       print R, AC, KGE, NS, RMSE, Bias, numPoints
       return R, AC, KGE, CC, Alpha, Beta, NS, RMSE, Bias, numPoints
     else:
@@ -558,7 +558,6 @@ def extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modL
 
 def f(location):
   print location
-
 
 getGlobalProperties(configFile, reference=False)
 pool = mp.Pool(processes=numCores)
