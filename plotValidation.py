@@ -262,13 +262,6 @@ for step in [1,30]:
   sel2 = np.sum(output[:,3:-1], axis=1) != 0.0
   sel3 = np.sum(output2[:,3:5], axis=1) != 0.0
   sel4 = (np.isfinite(output[:,3]+output[:,2]+output[:,4]+output[:,5]+output2[:,2]+output2[:,3]+output2[:,4]+output2[:,5]) == True)
-  if step != 1:
-    sel5 = output[:,-1] > 1
-    sel6 = output[:,12] > 60
-  else:
-    sel5 = output[:,-1] == 1
-    sel6 = output[:,12] > 365*5
-  print sel6
   sel = [x and y and z and w and v and u for x, y, z, w, v, u in zip(sel1, sel2, sel3, sel4, sel5, sel6)]
   sel5Min = sel # [x and y and z and w and v for x, y, z, w in zip(sel1, sel2, sel4, sel5)]
 
