@@ -435,10 +435,10 @@ def calculateMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, modS
     sel = obsSel & modSel
     if len(obs[sel]) > timeSize and len(mod[sel]) > timeSize:
       R = spearmanr(obs[sel], mod[sel])[0]
-      NS = nashSutcliffe(obs, mod)
-      RMSE = rmse(obs, mod)
-      Bias, numPoints = bias(obs, mod)
-      KGE, CC, Alpha, Beta = kge(obs, mod)
+      NS = nashSutcliffe(obs[sel], mod[sel])
+      RMSE = rmse(obs[sel], mod[sel])
+      Bias, numPoints = bias(obs[sel], mod[sel])
+      KGE, CC, Alpha, Beta = kge(obs[sel], mod[sel])
       AC = anomalyCorrelation(obs[sel], mod[sel])
       print R, AC, KGE, NS, RMSE, Bias, numPoints
       return R, AC, KGE, CC, Alpha, Beta, NS, RMSE, Bias, numPoints
