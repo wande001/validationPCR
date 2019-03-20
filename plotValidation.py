@@ -279,6 +279,7 @@ for step in [1,30]:
   matplotlib.rcParams.update({'font.size': 12})
   if worldMaps:
     plotWorldMap(output[sel5Min,3], output[sel5Min,0], output[sel5Min,1], 'Correlation with observations (%s)' %(str(config.get('Main options', 'RunName'))))
+    print output[sel5Min,3]
     if includeRef: plotWorldMap(output2[sel,3], output2[sel,0], output2[sel,1], 'Correlation with observations (%s)' %(str(config.get('Reference options', 'RunName'))))
     if includeRef: plotWorldMap(output[sel,3]-output2[sel,3], output[sel,0], output[sel,1], 'Correlation difference', vmin=-0.5, vmax=0.5)
 
