@@ -259,6 +259,16 @@ output, output2, fullOutput, fullOutput2, waterBalOutput, waterBalOutput2 = pick
 
 for step in [1,30]:
 
+  duplicates = []
+  lons = []
+  lats = []
+  for i in range(output.shape[0]):
+    duplicates.append(False)
+    if output[i,0] not in lons and output[i,1] not in lats and output[i,-1] == step:
+      lons.append(output[i,0])
+      lats.append(output[i,1])
+      duplicates.append(True)
+
   sel1 = (np.isnan(output[:,3]+output[:,2]+output[:,4]+output[:,5]+output2[:,2]+output2[:,3]+output2[:,4]+output2[:,5]) == False)
   sel2 = np.sum(output[:,3:-1], axis=1) != 0.0
   if includeRef:
@@ -270,7 +280,7 @@ for step in [1,30]:
     sel5 = output[:,-1] > 1
   else:
     sel5 = output[:,-1] == 1
-  sel = [x and y and z and w and v for x, y, z, w, v in zip(sel1, sel2, sel3, sel4, sel5)]
+  sel = [x and y and z and w and v and u for x, y, z, w, v, u in zip(sel1, sel2, sel3, sel4, sel5, duplicates)]
   sel5Min = sel # [x and y and z and w and v for x, y, z, w in zip(sel1, sel2, sel4, sel5)]
   print np.sum(sel5Min)
   print step
