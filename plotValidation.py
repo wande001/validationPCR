@@ -25,7 +25,7 @@ def readConfigFile(configFileName):
   config.readfp(io.BytesIO(sample_config))
   return config
 
-def stackedPlotHistogram(metric, catchmentSize, title, legendLoc = 2, yMax=False):
+def stackedPlotHistogram(metric, catchmentSize, title, legendLoc = 2, yMax=False, xMin=-1):
   metric[np.isfinite(metric) == False] = -10000
   plotData = []
   lims = [0,10**4,25000,50000,10**5,25*10**4,25*10**10]
@@ -40,7 +40,7 @@ def stackedPlotHistogram(metric, catchmentSize, title, legendLoc = 2, yMax=False
   ax1 = plt.title(title)
   ax1 = plt.xlabel("Value")
   ax1 = plt.ylabel("Frequency")
-  ax1 = plt.xlim(-1, 1)
+  ax1 = plt.xlim(xMin, 1)
   ax1 = plt.ylim(0, ymax)
   if yMax != False:
     ax1 = plt.ylim(0,yMax*1.02)
@@ -98,14 +98,15 @@ def plotCDF(forecast, validation, title, xlims = [-1,1]):
   vals, x1, x2, x3 = cumfreq(forecast, len(forecast))
   ax1 = plt.plot(np.linspace(np.min(forecast), np.max(forecast), len(forecast)), vals/len(forecast), label=str(config.get('Main options', 'RunName')))
   ax1 = plt.plot([np.median(forecast),np.median(forecast)],[0.0,0.5], c="blue",linestyle=':')
-  validation[np.isfinite(validation) == False] = -1.01
-  validation[validation < -1.01] = -1.01
-  vals, x1, x2, x3 = cumfreq(validation, len(validation))
-  ax2 = plt.plot(np.linspace(np.min(validation), np.max(validation), len(validation)), vals/len(validation), label=str(config.get('Reference options', 'RunName')))
-  ax2 = plt.legend(prop={'size': 10}, loc=2)
-  ax2 = plt.plot([np.median(validation),np.median(validation)],[0.0,0.5], c="red", linestyle=':')
-  ax2 = plt.text(np.max([np.median(validation),np.median(forecast)])+0.05, 0.4, "Med=%.3f" %(np.median(validation)), rotation=90, color="red", size=10)
+  if includeRef:
+    validation[np.isfinite(validation) == False] = -1.01
+    validation[validation < -1.01] = -1.01
+    vals, x1, x2, x3 = cumfreq(validation, len(validation))
+    ax2 = plt.plot(np.linspace(np.min(validation), np.max(validation), len(validation)), vals/len(validation), label=str(config.get('Reference options', 'RunName')))
+    ax2 = plt.plot([np.median(validation),np.median(validation)],[0.0,0.5], c="red", linestyle=':')
+    ax2 = plt.text(np.max([np.median(validation),np.median(forecast)])+0.05, 0.4, "Med=%.3f" %(np.median(validation)), rotation=90, color="red", size=10)
   ax1 = plt.text(np.max([np.median(validation),np.median(forecast)])+0.05, 0.2,"Med=%.3f" %(np.median(forecast)), rotation=90, color="blue", size=10)
+  ax1 = plt.legend(prop={'size': 10}, loc=2)
   ax1 = plt.title(title)
   ax1 = plt.xlabel("Value")
   ax1 = plt.ylabel("ECDF")
@@ -260,121 +261,130 @@ for step in [1,30]:
 
   sel1 = (np.isnan(output[:,3]+output[:,2]+output[:,4]+output[:,5]+output2[:,2]+output2[:,3]+output2[:,4]+output2[:,5]) == False)
   sel2 = np.sum(output[:,3:-1], axis=1) != 0.0
-  sel3 = np.sum(output2[:,3:5], axis=1) != 0.0
-  sel4 = (np.isfinite(output[:,3]+output[:,2]+output[:,4]+output[:,5]+output2[:,2]+output2[:,3]+output2[:,4]+output2[:,5]) == True)
-  sel = [x and y and z and w and v and u for x, y, z, w, v, u in zip(sel1, sel2, sel3, sel4, sel5, sel6)]
-  sel5Min = sel # [x and y and z and w and v for x, y, z, w in zip(sel1, sel2, sel4, sel5)]
-
-  if step != 1:
-    pdf = PdfPages('plotResults_%s_%s_monthly.pdf' %(run1, run2))
-  else:
-    pdf = PdfPages('plotResults_%s_%s_daily.pdf' %(run1, run2))
-  matplotlib.rcParams.update({'font.size': 12})
-  if worldMaps:
-    plotWorldMap(output[sel5Min,3], output[sel5Min,0], output[sel5Min,1], 'Correlation with observations (%s)' %(str(config.get('Main options', 'RunName'))))
-    print output[sel5Min,3]
-    if includeRef: plotWorldMap(output2[sel,3], output2[sel,0], output2[sel,1], 'Correlation with observations (%s)' %(str(config.get('Reference options', 'RunName'))))
-    if includeRef: plotWorldMap(output[sel,3]-output2[sel,3], output[sel,0], output[sel,1], 'Correlation difference', vmin=-0.5, vmax=0.5)
-
-    plotWorldMap(output[sel5Min,4], output[sel5Min,0], output[sel5Min,1], 'Anomaly Correlation (%s)' %(str(config.get('Main options', 'RunName'))))
-    if includeRef: plotWorldMap(output2[sel,4], output2[sel,0], output2[sel,1], 'Anomaly Correlation (%s)' %(str(config.get('Reference options', 'RunName'))))
-    if includeRef: plotWorldMap(output[sel,4]-output2[sel,4], output[sel,0], output[sel,1], 'Anomaly Correlation difference', vmin=-0.5, vmax=0.5)
-
-    plotWorldMap(output[sel5Min,4]-output[sel5Min,3], output[sel5Min,0], output[sel5Min,1], 'Anomaly Correlation - Correlation (%s)' %(str(config.get('Main options', 'RunName'))))
-    if includeRef: plotWorldMap(output2[sel,4]-output2[sel,3], output2[sel,0], output2[sel,1], 'Anomaly Correlation - Correlation (%s)' %(str(config.get('Reference options', 'RunName'))))
-
-  if plotHistogram:
-    if includeRef: yMax = findPlotMax(output[sel5Min,3], output2[sel,3])
-    else: yMax = False
-    stackedPlotHistogram(output[sel5Min,3], output[sel5Min,2], "Correlation with observations (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
-    if includeRef: stackedPlotHistogram(output2[sel,3], output2[sel,2], "Correlation with observations (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
-    if includeRef: stackedPlotHistogram(output[sel5Min,3]-output2[sel5Min,3], output2[sel5Min,2], "Correlation difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
-
-    if includeRef: yMax = findPlotMax(output[sel5Min,4], output2[sel,4])
-    else: yMax = False
-    stackedPlotHistogram(output[sel5Min,4], output[sel5Min,2], "Anomaly Correlation with observations (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
-    if includeRef: stackedPlotHistogram(output2[sel,4], output2[sel,2], "Anomaly Correlation with observations (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
-    if includeRef: stackedPlotHistogram(output[sel5Min,4]-output2[sel5Min,4], output2[sel5Min,2], "Anomaly Correlation difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
-
-    if includeRef: yMax = findPlotMax(output[sel5Min,5], output2[sel,5])
-    else: yMax = False
-    stackedPlotHistogram(output[sel5Min,5], output[sel5Min,2], "Kling-Gupta Efficiency (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
-    if includeRef: stackedPlotHistogram(output2[sel,5], output2[sel,2], "Kling-Gupta Efficiency (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
-    if includeRef: stackedPlotHistogram(output[sel5Min,5]-output2[sel5Min,5], output2[sel5Min,2], "Kling-Gupta Efficiency difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
-
-    if includeRef: yMax = findPlotMax(output[sel5Min,6], output2[sel,6])
-    else: yMax = False
-    stackedPlotHistogram(output[sel5Min,6], output[sel5Min,2], "Kling-Gupta Efficiency Correlation (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
-    if includeRef: stackedPlotHistogram(output2[sel,6], output2[sel,2], "Kling-Gupta Correlation (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
-    if includeRef: stackedPlotHistogram(output[sel5Min,6]-output2[sel5Min,6], output2[sel5Min,2], "Kling-Gupta Efficiency Correlation difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
-
-    if includeRef: yMax = findPlotMax(output[sel5Min,7], output2[sel,7])
-    else: yMax = False
-    stackedPlotHistogram(output[sel5Min,7], output[sel5Min,2], "Kling-Gupta Efficiency Alpha (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
-    if includeRef: stackedPlotHistogram(output2[sel,7], output2[sel,2], "Kling-Gupta Efficiency Alpha (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
-    if includeRef: stackedPlotHistogram(output[sel5Min,7]-output2[sel5Min,7], output2[sel5Min,2], "Kling-Gupta Efficiency Alpha difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
-
-    if includeRef: yMax = findPlotMax(output[sel5Min,8], output2[sel,8])
-    else: yMax = False
-    stackedPlotHistogram(output[sel5Min,8], output[sel5Min,2], "Kling-Gupta Efficiency Beta (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
-    if includeRef: stackedPlotHistogram(output2[sel,8], output2[sel,2], "Kling-Gupta Efficiency Beta (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
-    if includeRef: stackedPlotHistogram(output[sel5Min,8]-output2[sel5Min,8], output2[sel5Min,2], "Kling-Gupta Efficiency Beta difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
-
-    if includeRef: yMax = findPlotMax(output[sel5Min,4]-output[sel5Min,3], output2[sel,4]-output2[sel,3])
-    else: yMax = False
-    stackedPlotHistogram(output[sel5Min,4]-output[sel5Min,3], output[sel5Min,2], "AC - R (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
-    if includeRef: stackedPlotHistogram(output2[sel,4]-output2[sel,3], output2[sel,2], "AC - R (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
-
-  plotCDF(output[sel,3], output2[sel,3], "R")
-  plotCDF(output[sel,4], output2[sel,4], "AC")
-  plotCDF(output[sel,5], output2[sel,5], "KGE")
-
   if includeRef:
-    plotHeatmap(output[sel,3]-output2[sel,3], output[sel,4] - output2[sel,4], "Improv. in R and AC", "R", "AC")
-    plotHeatmap(output[sel,3]-output2[sel,3], output[sel,5] - output2[sel,5], "Improv. in R and KGE", "R", "KGE")
-    plotHeatmap(output[sel,4]-output2[sel,4], output[sel,5] - output2[sel,5], "Improv. in AC and KGE", "AC", "KGE")
-    plotHeatmap(output[sel,7]-output2[sel,7], output[sel,8] - output2[sel,8], "Improv. in KGE alpha and KGE beta", "Alpha", "Beta")
-  if worldMaps:
-    plotImprovementMap(output[sel,7]-output2[sel,7], output[sel,8] - output2[sel,8], output2[sel,0], output2[sel,1], "Improv. in KGE alpha and KGE beta" , s=5, lab1 = "Shape", lab2="Bias")
+    sel3 = np.sum(output2[:,3:5], axis=1) != 0.0
+  else:
+    sel3 = sel2
+  sel4 = (np.isfinite(output[:,3]+output[:,2]+output[:,4]+output[:,5]+output2[:,2]+output2[:,3]+output2[:,4]+output2[:,5]) == True)
+  if step != 1:
+    sel5 = output[:,-1] > 1
+  else:
+    sel5 = output[:,-1] == 1
+  sel = [x and y and z and w and v for x, y, z, w, v in zip(sel1, sel2, sel3, sel4, sel5)]
+  sel5Min = sel # [x and y and z and w and v for x, y, z, w in zip(sel1, sel2, sel4, sel5)]
+  print np.sum(sel5Min)
+  print step
+  if np.sum(sel5Min) > 0:
+    if step != 1:
+      pdf = PdfPages('plotResults_%s_%s_monthly.pdf' %(run1, run2))
+    else:
+      pdf = PdfPages('plotResults_%s_%s_daily.pdf' %(run1, run2))
+    matplotlib.rcParams.update({'font.size': 12})
+    if worldMaps:
+      plotWorldMap(output[sel5Min,3], output[sel5Min,0], output[sel5Min,1], 'Correlation with observations (%s)' %(str(config.get('Main options', 'RunName'))))
+      if includeRef: plotWorldMap(output2[sel,3], output2[sel,0], output2[sel,1], 'Correlation with observations (%s)' %(str(config.get('Reference options', 'RunName'))))
+      if includeRef: plotWorldMap(output[sel,3]-output2[sel,3], output[sel,0], output[sel,1], 'Correlation difference', vmin=-0.5, vmax=0.5)
 
-  if koeppen:
-    koeppenMask = getNCData(koeppenFile, varName = koeppenVarName, xSel = output[:,0], ySel = output[:,1])
+      plotWorldMap(output[sel5Min,4], output[sel5Min,0], output[sel5Min,1], 'Anomaly Correlation (%s)' %(str(config.get('Main options', 'RunName'))))
+      if includeRef: plotWorldMap(output2[sel,4], output2[sel,0], output2[sel,1], 'Anomaly Correlation (%s)' %(str(config.get('Reference options', 'RunName'))))
+      if includeRef: plotWorldMap(output[sel,4]-output2[sel,4], output[sel,0], output[sel,1], 'Anomaly Correlation difference', vmin=-0.5, vmax=0.5)
 
-    selA = koeppenMask <= 4
-    if np.sum(selA) > 0:
-      plotClimateHistogram(selA, "Tropical Climate", output, output2, sel5Min, sel)
-      plotClimateCDF(selA, "Tropical Climate", output, output2, sel5Min, sel)
+      plotWorldMap(output[sel5Min,4]-output[sel5Min,3], output[sel5Min,0], output[sel5Min,1], 'Anomaly Correlation - Correlation (%s)' %(str(config.get('Main options', 'RunName'))))
+      if includeRef: plotWorldMap(output2[sel,4]-output2[sel,3], output2[sel,0], output2[sel,1], 'Anomaly Correlation - Correlation (%s)' %(str(config.get('Reference options', 'RunName'))))
 
-    selB = [x and y for x, y in zip(koeppenMask >= 5, koeppenMask <= 8)]
-    if np.sum(selB) > 0:
-      plotClimateHistogram(selB, "Desert Climate", output, output2, sel5Min, sel)
-      plotClimateCDF(selB, "Desert Climate", output, output2, sel5Min, sel)
+    if plotHistogram:
+      if includeRef: yMax = findPlotMax(output[sel5Min,3], output2[sel,3])
+      else: yMax = False
+      stackedPlotHistogram(output[sel5Min,3], output[sel5Min,2], "Correlation with observations (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
+      if includeRef: stackedPlotHistogram(output2[sel,3], output2[sel,2], "Correlation with observations (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
+      if includeRef: stackedPlotHistogram(output[sel5Min,3]-output2[sel5Min,3], output2[sel5Min,2], "Correlation difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
-    selC = [x and y for x, y in zip(koeppenMask >= 9, koeppenMask <= 17)]
-    if np.sum(selC) > 0:
-      plotClimateHistogram(selC, "Temperate Climate", output, output2, sel5Min, sel)
-      plotClimateCDF(selC, "Temperate Climate", output, output2, sel5Min, sel)
+      if includeRef: yMax = findPlotMax(output[sel5Min,4], output2[sel,4])
+      else: yMax = False
+      stackedPlotHistogram(output[sel5Min,4], output[sel5Min,2], "Anomaly Correlation with observations (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
+      if includeRef: stackedPlotHistogram(output2[sel,4], output2[sel,2], "Anomaly Correlation with observations (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
+      if includeRef: stackedPlotHistogram(output[sel5Min,4]-output2[sel5Min,4], output2[sel5Min,2], "Anomaly Correlation difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
-    selD = [x and y for x, y in zip(koeppenMask >= 18, koeppenMask <= 28)]
-    if np.sum(selD) > 0:
-      plotClimateHistogram(selD, "Continental Climate", output, output2, sel5Min, sel)
-      plotClimateCDF(selD, "Continental Climate", output, output2, sel5Min, sel)
+      if includeRef: yMax = findPlotMax(output[sel5Min,5], output2[sel,5])
+      else: yMax = False
+      stackedPlotHistogram(output[sel5Min,5], output[sel5Min,2], "Kling-Gupta Efficiency (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
+      if includeRef: stackedPlotHistogram(output2[sel,5], output2[sel,2], "Kling-Gupta Efficiency (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
+      if includeRef: stackedPlotHistogram(output[sel5Min,5]-output2[sel5Min,5], output2[sel5Min,2], "Kling-Gupta Efficiency difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
-  if dem:
-    demMask = getNCData(demFile, varName = demVarName, xSel = output[:,0], ySel = -output[:,1])
+      if includeRef: yMax = findPlotMax(output[sel5Min,6], output2[sel,6])
+      else: yMax = False
+      stackedPlotHistogram(output[sel5Min,6], output[sel5Min,2], "Kling-Gupta Efficiency Correlation (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
+      if includeRef: stackedPlotHistogram(output2[sel,6], output2[sel,2], "Kling-Gupta Correlation (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
+      if includeRef: stackedPlotHistogram(output[sel5Min,6]-output2[sel5Min,6], output2[sel5Min,2], "Kling-Gupta Efficiency Correlation difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
-    selLow = demMask <= 1000
-    if np.sum(selLow) > 0:
-      plotClimateHistogram(selLow, "Below 1000m elevation", output, output2, sel5Min, sel)
-      plotClimateCDF(selLow, "Below 1000m elevation", output, output2, sel5Min, sel)
+      if includeRef: yMax = findPlotMax(output[sel5Min,7], output2[sel,7])
+      else: yMax = False
+      stackedPlotHistogram(output[sel5Min,7], output[sel5Min,2], "Kling-Gupta Efficiency Alpha (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax, xMin = 0)
+      if includeRef: stackedPlotHistogram(output2[sel,7], output2[sel,2], "Kling-Gupta Efficiency Alpha (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax, xMin = 0)
+      if includeRef: stackedPlotHistogram(output[sel5Min,7]-output2[sel5Min,7], output2[sel5Min,2], "Kling-Gupta Efficiency Alpha difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
-    selHigh = demMask > 1000
-    if np.sum(selHigh) > 0:
-      plotClimateHistogram(selHigh, "Above 1000m elevation", output, output2, sel5Min, sel)
-      plotClimateCDF(selHigh, "Above 1000m elevation", output, output2, sel5Min, sel)
+      if includeRef: yMax = findPlotMax(output[sel5Min,8], output2[sel,8])
+      else: yMax = False
+      stackedPlotHistogram(output[sel5Min,8], output[sel5Min,2], "Kling-Gupta Efficiency Beta (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax, xMin = 0)
+      if includeRef: stackedPlotHistogram(output2[sel,8], output2[sel,2], "Kling-Gupta Efficiency Beta (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax, xMin = 0)
+      if includeRef: stackedPlotHistogram(output[sel5Min,8]-output2[sel5Min,8], output2[sel5Min,2], "Kling-Gupta Efficiency Beta difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
-  if reportWaterBalance:
-    plotWaterBalance(waterBalOutput)
-    if includeRef: plotWaterBalance(waterBalOutput2)
+      if includeRef: yMax = findPlotMax(output[sel5Min,4]-output[sel5Min,3], output2[sel,4]-output2[sel,3])
+      else: yMax = False
+      stackedPlotHistogram(output[sel5Min,4]-output[sel5Min,3], output[sel5Min,2], "AC - R (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax)
+      if includeRef: stackedPlotHistogram(output2[sel,4]-output2[sel,3], output2[sel,2], "AC - R (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
 
-  pdf.close()
+    plotCDF(output[sel5Min,3], output2[sel,3], "R")
+    plotCDF(output[sel5Min,4], output2[sel,4], "AC")
+    plotCDF(output[sel5Min,5], output2[sel,5], "KGE")
+
+    if worldMaps and includeRef:
+      plotImprovementMap(output[sel5Min,7]-output2[sel,7], output[sel5Min,8] - output2[sel,8], output2[sel,0], output2[sel,1], "Improv. in KGE alpha and KGE beta" , s=5, lab1 = "Shape", lab2="Bias")
+
+    if includeRef:
+      plotHeatmap(output[sel5Min,3]-output2[sel,3], output[sel5Min,4] - output2[sel,4], "Improv. in R and AC", "R", "AC")
+      plotHeatmap(output[sel5Min,3]-output2[sel,3], output[sel5Min,5] - output2[sel,5], "Improv. in R and KGE", "R", "KGE")
+      plotHeatmap(output[sel5Min,4]-output2[sel,4], output[sel5Min,5] - output2[sel,5], "Improv. in AC and KGE", "AC", "KGE")
+      plotHeatmap(output[sel5Min,7]-output2[sel,7], output[sel5Min,8] - output2[sel,8], "Improv. in KGE alpha and KGE beta", "Alpha", "Beta")
+
+    if koeppen:
+      koeppenMask = getNCData(koeppenFile, varName = koeppenVarName, xSel = output[:,0], ySel = output[:,1])
+
+      selA = koeppenMask <= 4
+      if np.sum(selA) > 0:
+        plotClimateHistogram(selA, "Tropical Climate", output, output2, sel5Min, sel)
+        plotClimateCDF(selA, "Tropical Climate", output, output2, sel5Min, sel)
+
+      selB = [x and y for x, y in zip(koeppenMask >= 5, koeppenMask <= 8)]
+      if np.sum(selB) > 0:
+        plotClimateHistogram(selB, "Desert Climate", output, output2, sel5Min, sel)
+        plotClimateCDF(selB, "Desert Climate", output, output2, sel5Min, sel)
+
+      selC = [x and y for x, y in zip(koeppenMask >= 9, koeppenMask <= 17)]
+      if np.sum(selC) > 0:
+        plotClimateHistogram(selC, "Temperate Climate", output, output2, sel5Min, sel)
+        plotClimateCDF(selC, "Temperate Climate", output, output2, sel5Min, sel)
+
+      selD = [x and y for x, y in zip(koeppenMask >= 18, koeppenMask <= 28)]
+      if np.sum(selD) > 0:
+        plotClimateHistogram(selD, "Continental Climate", output, output2, sel5Min, sel)
+        plotClimateCDF(selD, "Continental Climate", output, output2, sel5Min, sel)
+
+    if dem:
+      demMask = getNCData(demFile, varName = demVarName, xSel = output[:,0], ySel = -output[:,1])
+
+      selLow = demMask <= 1000
+      if np.sum(selLow) > 0:
+        plotClimateHistogram(selLow, "Below 1000m elevation", output, output2, sel5Min, sel)
+        plotClimateCDF(selLow, "Below 1000m elevation", output, output2, sel5Min, sel)
+
+      selHigh = demMask > 1000
+      if np.sum(selHigh) > 0:
+        plotClimateHistogram(selHigh, "Above 1000m elevation", output, output2, sel5Min, sel)
+        plotClimateCDF(selHigh, "Above 1000m elevation", output, output2, sel5Min, sel)
+
+    if reportWaterBalance:
+      plotWaterBalance(waterBalOutput)
+      if includeRef: plotWaterBalance(waterBalOutput2)
+
+    pdf.close()
