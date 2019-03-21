@@ -60,6 +60,7 @@ def plotScatter(forecast, title):
 
 def plotTimeLines(forecast, reference, title):
   ax1 = plt.figure(figsize=(12,5))
+  plotTimes = monthSeries(forecast['times'])
   if forecast['times'][0].month != forecast['times'][1].month:
     plotTimes = monthSeries(forecast['times'])
   ax1 = plt.plot(plotTimes, forecast['modelled'], "r", markersize=8, label=str(config.get('Main options', 'RunName')))
@@ -107,8 +108,8 @@ print IDs
 pdf = PdfPages('riverResults_%s_%s.pdf' %(run1, run2))
 for ID, name in zip(IDs, riverID):
   plotTimeLines(fullOutput["data"][ID], fullOutput2["data"][ID], "GRDC River %s" %(name))
-  plotScatter(fullOutput["data"][ID], "Simulations %s, R= %.2f, AC = %.2f, KGE = %.2f" %(str(config.get('Main options', 'RunName')), output[IDs[0],3], output[IDs[0],4], output[IDs[0],5]))
-  plotScatter(fullOutput2["data"][ID], "Simulations %s, R= %.2f, AC = %.2f, KGE = %.2f" %(str(config.get('Reference options', 'RunName')), output2[IDs[0],3], output2[IDs[0],4], output2[IDs[0],5]))
+  plotScatter(fullOutput["data"][ID], "Simulations %s, R= %.2f, AC = %.2f, KGE = %.2f" %(str(config.get('Main options', 'RunName')), output[ID,3], output[ID,4], output[ID,5]))
+  plotScatter(fullOutput2["data"][ID], "Simulations %s, R= %.2f, AC = %.2f, KGE = %.2f" %(str(config.get('Reference options', 'RunName')), output2[ID,3], output2[ID,4], output2[ID,5]))
   plotCDF(fullOutput["data"][ID], fullOutput2["data"][ID], "GRDC River %s" %(name))
 
 pdf.close()
