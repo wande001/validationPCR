@@ -440,7 +440,6 @@ def calculateMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, modS
       Bias, numPoints = bias(obs[sel], mod[sel])
       KGE, CC, Alpha, Beta = kge(obs[sel], mod[sel])
       AC = anomalyCorrelation(obs[sel], mod[sel])
-      print R, AC, KGE, NS, RMSE, Bias, numPoints
       return R, AC, KGE, CC, Alpha, Beta, NS, RMSE, Bias, numPoints
     else:
       return np.zeros((10))
@@ -530,7 +529,7 @@ def getGlobalProperties(configFile, reference):
   return modLon, modLat, modStart, modEnd, modStep, modTimes, inputDir, modCatchArea, windowSize, timeSize, misMatch, locations, numCores
   
 def extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modLon, modLat, modCatchArea, modStep, modTimes):
-  #print location/float(len(locations)), locations[location]
+  print location/float(len(locations)), locations[location]
   location = locations[location]
   output = np.zeros((14))
   series = []
@@ -540,7 +539,6 @@ def extractLocation(location,inputDir, dischargeFileName, modStart, modEnd, modL
     output[0:2] = obsLon, obsLat
     output[2] = obsCatchArea
     xSel, ySel = matchLocation(obsLon, obsLat, obsCatchArea, modLon, modLat, modCatchArea, windowSize, misMatch)
-    print location, obsStep, xSel, ySel
     if xSel != -999. and ySel != -999.:
       modValues = getModelData("%s/%s" %(inputDir, dischargeFileName), xSel, ySel)
       obsValues = getObservationData("%s/%s" %(dischargeDir, location))
