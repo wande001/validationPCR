@@ -28,15 +28,18 @@ def readConfigFile(configFileName):
 def stackedPlotHistogram(metric, catchmentSize, title, legendLoc = 2, yMax=False, xMin=-1):
   metric[np.isfinite(metric) == False] = -10000
   plotData = []
+  xWidth = 0.1
+  if xMin == 0.0: xWidth = 0.05
   lims = [0,10**4,25000,50000,10**5,25*10**4,25*10**10]
   for lim in range(1,len(lims)):
     sel1 = catchmentSize/10**6 < lims[lim]
     sel2 = catchmentSize/10**6 > lims[lim-1]
     sel = [x and y for x, y in zip(sel1, sel2)]
     plotData.append(metric[sel])
-  ax1 = plt.hist(plotData, bins=np.arange(-1,1.01,0.1), width = 0.1, stacked=True, color=plt.get_cmap("Blues")(np.linspace(0, 1, 6)), label = ["$<10*10^3$","$<25*10^3$","$<50*10^3$","$<100*10^3$","$<250*10^3$","$\geq250*10^3$"], edgecolor = "none")
+  ax1 = plt.hist(plotData, bins=np.arange(-1,1.01,xWidth), width = xWidth, stacked=True, color=plt.get_cmap("Blues")(np.linspace(0, 1, 6)), label = ["$<10*10^3$","$<25*10^3$","$<50*10^3$","$<100*10^3$","$<250*10^3$","$\geq250*10^3$"], edgecolor = "none")
   ymax = np.max(ax1[0])*1.02
-  ax1 = plt.legend(prop={'size': 10}, title="Catchment size ($km^2$)", loc = legendLoc)
+  #ax1 = plt.legend(prop={'size': 8}, fontsize=8, title="Catchment size ($km^2$)", loc = legendLoc)
+  ax1 = plt.legend(prop={'size': 8}, fontsize=8, loc = legendLoc, frameon=False)
   ax1 = plt.title(title)
   ax1 = plt.xlabel("Value")
   ax1 = plt.ylabel("Frequency")
@@ -48,9 +51,11 @@ def stackedPlotHistogram(metric, catchmentSize, title, legendLoc = 2, yMax=False
   pdf.savefig()
   plt.clf()
 
-def findPlotMax(forecast, validation):
-  ax1 = plt.hist(forecast, bins=np.arange(-1,1.01,0.1))[0]
-  ax2 = plt.hist(validation, bins=np.arange(-1,1.01,0.1))[0]
+def findPlotMax(forecast, validation, xMin = -1):
+  xWidth = 0.1
+  if xMin == 0: xWidth = 0.05
+  ax1 = plt.hist(forecast, bins=np.arange(-1,1.01,xWidth))[0]
+  ax2 = plt.hist(validation, bins=np.arange(-1,1.01,xWidth))[0]
   binMax = np.maximum(ax1, ax2)
   plt.clf()
   return(np.max(binMax))
@@ -104,7 +109,7 @@ def plotCDF(forecast, validation, title, xlims = [-1,1]):
     vals, x1, x2, x3 = cumfreq(validation, len(validation))
     ax2 = plt.plot(np.linspace(np.min(validation), np.max(validation), len(validation)), vals/len(validation), label=str(config.get('Reference options', 'RunName')))
     ax2 = plt.plot([np.median(validation),np.median(validation)],[0.0,0.5], c="red", linestyle=':')
-    ax2 = plt.text(np.max([np.median(validation),np.median(forecast)])+0.05, 0.4, "Med=%.3f" %(np.median(validation)), rotation=90, color="red", size=10)
+    ax2 = plt.text(np.max([np.median(validation),np.median(forecast)])+0.05, 0.44, "Med=%.3f" %(np.median(validation)), rotation=90, color="red", size=10)
   ax1 = plt.text(np.max([np.median(validation),np.median(forecast)])+0.05, 0.2,"Med=%.3f" %(np.median(forecast)), rotation=90, color="blue", size=10)
   ax1 = plt.legend(prop={'size': 10}, loc=2)
   ax1 = plt.title(title)
@@ -144,7 +149,7 @@ def plotHexBin(forecast, validation, title):
   plt.clf()
 
 def plotWorldMap(data, lons, lats, title, vmin = -1., vmax = 1., s=5):
-  plt.figure(figsize=(8, 4))
+  plt.figure(figsize=(12, 6))
   m = Basemap(projection='mill',lon_0=0, llcrnrlon=-180., llcrnrlat=-59.,
 urcrnrlon=180., urcrnrlat=90.)
   x,y = m(lons, lats)
@@ -160,10 +165,10 @@ urcrnrlon=180., urcrnrlat=90.)
   plt.gcf().set_tight_layout(True)
   pdf.savefig()
   plt.clf()
-  plt.figure(figsize=(8, 6))
+  plt.figure(figsize=(6, 5))
 
 def plotImprovementMap(data, data2, lons, lats, title, s=5, lab1 = "Shape", lab2="Bias"):
-  plt.figure(figsize=(8, 4))
+  plt.figure(figsize=(12, 6))
   m = Basemap(projection='mill',lon_0=0, llcrnrlon=-180., llcrnrlat=-59.,
 urcrnrlon=180., urcrnrlat=90.)
   m.drawcountries(zorder=0, color="white")
@@ -195,7 +200,7 @@ urcrnrlon=180., urcrnrlat=90.)
   #plt.gcf().set_tight_layout(True)
   pdf.savefig()
   plt.clf()
-  plt.figure(figsize=(8, 6))
+  plt.figure(figsize=(6, 5))
 
 def getNCData(ncFile, varName, xSel, ySel):
   # Get netCDF file and variable name:
@@ -259,15 +264,23 @@ output, output2, fullOutput, fullOutput2, waterBalOutput, waterBalOutput2 = pick
 
 for step in [1,30]:
 
-  duplicates = []
+  uniques = np.zeros((output.shape[0]), dtype=bool)
   lons = []
   lats = []
   for i in range(output.shape[0]):
-    duplicates.append(False)
-    if output[i,0] not in lons and output[i,1] not in lats and output[i,-1] == step:
+    unique = True
+    if output[i,-1] != 1 and step != 1:
+      for x, y in zip(lons == output[i,0], lats == output[i,1]):
+        if x and y and output[i,-1] != 1 and step != 1:
+          unique = False
+    if output[i,-1] == 1 and step == 1:
+      for x, y in zip(lons == output[i,0], lats == output[i,1]):
+        if x and y and output[i,-1] != 1 and step != 1:
+          unique = False        
+    if unique:
       lons.append(output[i,0])
       lats.append(output[i,1])
-      duplicates.append(True)
+      uniques[i] = True
 
   sel1 = (np.isnan(output[:,3]+output[:,2]+output[:,4]+output[:,5]+output2[:,2]+output2[:,3]+output2[:,4]+output2[:,5]) == False)
   sel2 = np.sum(output[:,3:-1], axis=1) != 0.0
@@ -280,7 +293,7 @@ for step in [1,30]:
     sel5 = output[:,-1] > 1
   else:
     sel5 = output[:,-1] == 1
-  sel = [x and y and z and w and v and u for x, y, z, w, v, u in zip(sel1, sel2, sel3, sel4, sel5, duplicates)]
+  sel = [x and y and z and w and v and u for x, y, z, w, v, u in zip(sel1, sel2, sel3, sel4, sel5, uniques)]
   sel5Min = sel # [x and y and z and w and v for x, y, z, w in zip(sel1, sel2, sel4, sel5)]
   print np.sum(sel5Min)
   print step
@@ -327,13 +340,13 @@ for step in [1,30]:
       if includeRef: stackedPlotHistogram(output2[sel,6], output2[sel,2], "Kling-Gupta Correlation (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax)
       if includeRef: stackedPlotHistogram(output[sel5Min,6]-output2[sel5Min,6], output2[sel5Min,2], "Kling-Gupta Efficiency Correlation difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
-      if includeRef: yMax = findPlotMax(output[sel5Min,7], output2[sel,7])
+      if includeRef: yMax = findPlotMax(output[sel5Min,7], output2[sel,7], xMin = 0)
       else: yMax = False
       stackedPlotHistogram(output[sel5Min,7], output[sel5Min,2], "Kling-Gupta Efficiency Alpha (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax, xMin = 0)
       if includeRef: stackedPlotHistogram(output2[sel,7], output2[sel,2], "Kling-Gupta Efficiency Alpha (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax, xMin = 0)
       if includeRef: stackedPlotHistogram(output[sel5Min,7]-output2[sel5Min,7], output2[sel5Min,2], "Kling-Gupta Efficiency Alpha difference %s - %s" %(str(config.get('Main options', 'RunName')), str(config.get('Reference options', 'RunName'))))
 
-      if includeRef: yMax = findPlotMax(output[sel5Min,8], output2[sel,8])
+      if includeRef: yMax = findPlotMax(output[sel5Min,8], output2[sel,8], xMin = 0)
       else: yMax = False
       stackedPlotHistogram(output[sel5Min,8], output[sel5Min,2], "Kling-Gupta Efficiency Beta (%s)" %(str(config.get('Main options', 'RunName'))), yMax= yMax, xMin = 0)
       if includeRef: stackedPlotHistogram(output2[sel,8], output2[sel,2], "Kling-Gupta Efficiency Beta (%s)" %(str(config.get('Reference options', 'RunName'))), yMax= yMax, xMin = 0)
