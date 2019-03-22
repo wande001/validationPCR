@@ -3,6 +3,7 @@ import io
 import sys
 import os
 import pickle
+import glob
 #import pcraster as pcr
 from osgeo import gdal
 import netCDF4 as nc
@@ -477,13 +478,6 @@ def calculateFullMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, 
 
 
 def getWaterBalance(fileName):
-  try:
-    f = open(fileName, "r")
-    lines = f.readlines()
-    f.close()
-  except:
-	lines = ""
-  
   varData = {
 		"year" : [],
 		"precipitation" : [],
@@ -494,22 +488,29 @@ def getWaterBalance(fileName):
 		"storage": [],}
   
   varNames = varData.keys()
-  for line in lines:
-    varFields = line.split(" ")
-    if len(varFields) > 2:
-      if varFields[2] == "pcrglobwb" and len(varFields) == 9:
-        year = int(varFields[-1][:4])
-        if (year in varData["year"]) == False: varData["year"].append(year)
-      if len(varFields) > 15:
-        if varFields[7] == "days" and varFields[8] == "1" and varFields[9] == "to":
-          for var in varNames:
-            if varFields[6] == var:
-              varData[var].append(float(varFields[14]))
-      if len(varFields) > 14:
-        if varFields[6] == "days" and varFields[7] == "1" and varFields[8] == "to":
-          for var in varNames:
-            if varFields[5] == var:
-              varData[var].append(float(varFields[13]))
+  for fileName in files:
+    try:
+      f = open(fileName, "r")
+      lines = f.readlines()
+      f.close()
+    except:
+          lines = ""
+    for line in lines:
+      varFields = line.split(" ")
+      if len(varFields) > 2:
+        if varFields[2] == "pcrglobwb" and len(varFields) == 9:
+          year = int(varFields[-1][:4])
+          if (year in varData["year"]) == False: varData["year"].append(year)
+        if len(varFields) > 15:
+          if varFields[7] == "days" and varFields[8] == "1" and varFields[9] == "to":
+            for var in varNames:
+              if varFields[6] == var:
+                varData[var].append(float(varFields[14]))
+        if len(varFields) > 14:
+          if varFields[6] == "days" and varFields[7] == "1" and varFields[8] == "to":
+            for var in varNames:
+              if varFields[5] == var:
+                varData[var].append(float(varFields[13]))
   return(varData)
 
 def getGlobalProperties(configFile, reference):
