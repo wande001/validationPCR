@@ -477,7 +477,7 @@ def calculateFullMetrics(obs, mod, obsStart, obsEnd, modStart, modEnd, obsStep, 
     return outData
 
 
-def getWaterBalance(fileName):
+def getWaterBalance(fileNames):
   varData = {
 		"year" : [],
 		"precipitation" : [],
@@ -488,7 +488,8 @@ def getWaterBalance(fileName):
 		"storage": [],}
   
   varNames = varData.keys()
-  for fileName in files:
+  for fileName in glob.glob(fileNames):
+    print fileName
     try:
       f = open(fileName, "r")
       lines = f.readlines()
@@ -499,8 +500,11 @@ def getWaterBalance(fileName):
       varFields = line.split(" ")
       if len(varFields) > 2:
         if varFields[2] == "pcrglobwb" and len(varFields) == 9:
-          year = int(varFields[-1][:4])
-          if (year in varData["year"]) == False: varData["year"].append(year)
+          try:
+            year = int(varFields[-1][:4])
+          except:
+            if varFields[2] == "pcrglobwb" and len(varFields) == 16: year = int(varFields[11][:4])
+          if year is not varData["year"]: varData["year"].append(year)
         if len(varFields) > 15:
           if varFields[7] == "days" and varFields[8] == "1" and varFields[9] == "to":
             for var in varNames:
