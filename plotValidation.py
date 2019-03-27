@@ -223,18 +223,17 @@ def plotClimateCDF(climateSel, title, output, output2, sel5Min, sel):
   if len(output[selClim,5]) > 10:
     plotCDF(output[selClim,5], output2[selClim,5], "Kling-Gupta Efficiency %s" %(title))
 
-def plotWaterBalance(data):
+def plotWaterBalance(data, title):
   totalLen = len(data["year"])
-  print len(data["precipitation"]), len(data["year"])
   numMasks = len(data["precipitation"])/len(data["year"])
   if numMasks == 1:
-    ax1 = plt.plot(data["year"], data["precipitation"][-totalLen:], label="Precipitation")
-    ax2 = plt.plot(data["year"], data["actualET"][-totalLen:], label="Evaporation")
-    ax3 = plt.plot(data["year"], data["runoff"][-totalLen:], label="Discharge")
-    ax4 = plt.plot(data["year"], data["totalPotentialGrossDemand"][-totalLen:], label="Demand")
-    ax5 = plt.plot(data["year"], data["storage"][-totalLen:], label="Storage Change")
+    ax1 = plt.plot(data["year"], data["precipitation"][-totalLen:], label="Precipitation= %.2f" %(np.mean(data["precipitation"][-totalLen:])/1000.))
+    ax2 = plt.plot(data["year"], data["actualET"][-totalLen:], label="Evaporation= %.2f" %(np.mean(data["actualET"][-totalLen:])/1000.))
+    ax3 = plt.plot(data["year"], data["runoff"][-totalLen:], label="Discharge= %.2f" %(np.mean(data["runoff"][-totalLen:])/1000.))
+    ax4 = plt.plot(data["year"], data["totalPotentialGrossDemand"][-totalLen:], label="Demand= %.2f" %(np.mean(data["totalPotentialGrossDemand"][-totalLen:])/1000.))
+    ax5 = plt.plot(data["year"], data["storage"][-totalLen:], label="Storage Change= %.2f" %(np.mean(data["storage"][-totalLen:])/1000.))
     ax5 = plt.legend(prop={'size': 10}, loc=2)
-    ax1 = plt.title("Global Water Balance")
+    ax1 = plt.title("Global Water Balance %s" %(title))
     ax1 = plt.xlabel("Year")
     ax1 = plt.ylabel("km3")
     ax1 = plt.ylim(np.min(data["storage"]), np.max(data["precipitation"]))
@@ -251,13 +250,13 @@ def plotWaterBalance(data):
       toPlot3.append(np.sum(np.array(data["runoff"])[selID]))
       toPlot4.append(np.sum(np.array(data["totalPotentialGrossDemand"])[selID]))
       toPlot5.append(np.sum(np.array(data["storage"])[selID]))
-    ax1 = plt.plot(data["year"], toPlot1, label="Precipitation")
-    ax2 = plt.plot(data["year"], toPlot2, label="Evaporation")
-    ax3 = plt.plot(data["year"], toPlot3, label="Discharge")
-    ax4 = plt.plot(data["year"], toPlot4, label="Demand")
-    ax5 = plt.plot(data["year"], toPlot5, label="Storage Change")
+    ax1 = plt.plot(data["year"], toPlot1, label="Precipitation = %.2f" %(np.mean(toPlot1)/1000.))
+    ax2 = plt.plot(data["year"], toPlot2, label="Evaporation= %.2f" %(np.mean(toPlot2)/1000.))
+    ax3 = plt.plot(data["year"], toPlot3, label="Discharge= %.2f" %(np.mean(toPlot3)/1000.))
+    ax4 = plt.plot(data["year"], toPlot4, label="Demand= %.2f" %(np.mean(toPlot4)/1000.))
+    ax5 = plt.plot(data["year"], toPlot5, label="Storage Change= %.2f" %(np.mean(toPlot5)/1000.))
     ax5 = plt.legend(prop={'size': 10}, loc=2)
-    ax1 = plt.title("Global Water Balance")
+    ax1 = plt.title("Global Water Balance %s" %(title))
     ax1 = plt.xlabel("Year")
     ax1 = plt.ylabel("km3")
     ax1 = plt.ylim(np.min(toPlot5), np.max(toPlot1))
@@ -433,7 +432,7 @@ for step in [1,30]:
         plotClimateCDF(selHigh, "Above 1000m elevation", output, output2, sel5Min, sel)
 
     if reportWaterBalance:
-      plotWaterBalance(waterBalOutput)
-      if includeRef: plotWaterBalance(waterBalOutput2)
+      plotWaterBalance(waterBalOutput, "05min")
+      if includeRef: plotWaterBalance(waterBalOutput2, "30min")
 
     pdf.close()
