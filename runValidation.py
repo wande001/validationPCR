@@ -504,7 +504,7 @@ def getWaterBalance(fileNames):
             year = int(varFields[-1][:4])
           except:
             if varFields[2] == "pcrglobwb" and len(varFields) == 16: year = int(varFields[11][:4])
-          if year is not varData["year"]: varData["year"].append(year)
+          if year not in varData["year"]: varData["year"].append(year)
         if len(varFields) > 15:
           if varFields[7] == "days" and varFields[8] == "1" and varFields[9] == "to":
             for var in varNames:
