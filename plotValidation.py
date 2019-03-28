@@ -244,7 +244,7 @@ def plotWaterBalance(data, title):
     toPlot4 = []
     toPlot5 = []
     for y in range(totalLen):
-      selID = np.arange(y,totalLen*numMasks,numMasks)
+      selID = np.arange(y,totalLen*numMasks,totalLen)
       toPlot1.append(np.sum(np.array(data["precipitation"])[selID]))
       toPlot2.append(np.sum(np.array(data["actualET"])[selID]))
       toPlot3.append(np.sum(np.array(data["runoff"])[selID]))
