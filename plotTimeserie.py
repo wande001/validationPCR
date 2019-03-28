@@ -98,19 +98,37 @@ includeRef = getOptions(config, "general")
 output, output2, fullOutput, fullOutput2, waterBalOutput, waterBalOutput2 = pickle.load(open('validationResultsPool_%s_%s.obj' %(run1, run2), 'rb') )
 
 IDs = []
+nameS = []
+titleS = []
 for ID in riverID:
-  print ID
-  IDs.append([i for i,x in enumerate(fullOutput["ID"]) if x == ID])
+  find = False
+  for i,x in enumerate(fullOutput["ID"]):
+    if x == ID:
+      if find == False:
+        find = True
+        IDs.append(i)
+        nameS.append(ID)
+        if output[i,-1] == 1:
+          titleS.append("Daily")
+        else:
+          titleS.append("Monthly")
+      elif find and output[IDs[-1],-1] != output[i,-1]:
+        IDs.append(i)
+        nameS.append(ID)
+        if output[i,-1] == 1:
+          titleS.append("Daily")
+        else:
+          titleS.append("Monthly")
 
 IDs = np.array(IDs).flatten()
 print IDs
 
 pdf = PdfPages('riverResults_%s_%s.pdf' %(run1, run2))
-for ID, name in zip(IDs, riverID):
-  plotTimeLines(fullOutput["data"][ID], fullOutput2["data"][ID], "GRDC River %s" %(name))
-  plotScatter(fullOutput["data"][ID], "Simulations %s, R= %.2f, AC = %.2f, KGE = %.2f" %(str(config.get('Main options', 'RunName')), output[ID,3], output[ID,4], output[ID,5]))
-  plotScatter(fullOutput2["data"][ID], "Simulations %s, R= %.2f, AC = %.2f, KGE = %.2f" %(str(config.get('Reference options', 'RunName')), output2[ID,3], output2[ID,4], output2[ID,5]))
-  plotCDF(fullOutput["data"][ID], fullOutput2["data"][ID], "GRDC River %s" %(name))
+for ID, name, title in zip(IDs, nameS, titleS):
+  plotTimeLines(fullOutput["data"][ID], fullOutput2["data"][ID], "GRDC River %s %s" %(name, title))
+  plotScatter(fullOutput["data"][ID], "%s %s, R= %.2f, AC = %.2f, KGE = %.2f" %(title, str(config.get('Main options', 'RunName')), output[ID,3], output[ID,4], output[ID,5]))
+  plotScatter(fullOutput2["data"][ID], "%s %s, R= %.2f, AC = %.2f, KGE = %.2f" %(title, str(config.get('Reference options', 'RunName')), output2[ID,3], output2[ID,4], output2[ID,5]))
+  plotCDF(fullOutput["data"][ID], fullOutput2["data"][ID], "GRDC River %s %s" %(name, title))
 
 pdf.close()
 
