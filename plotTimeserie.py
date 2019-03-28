@@ -60,7 +60,7 @@ def plotScatter(forecast, title):
 
 def plotTimeLines(forecast, reference, title):
   ax1 = plt.figure(figsize=(12,5))
-  plotTimes = monthSeries(forecast['times'])
+  plotTimes = forecast['times']
   if forecast['times'][0].month != forecast['times'][1].month:
     plotTimes = monthSeries(forecast['times'])
   ax1 = plt.plot(plotTimes, forecast['modelled'], "r", markersize=8, label=str(config.get('Main options', 'RunName')))
